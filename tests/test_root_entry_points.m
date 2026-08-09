@@ -10,13 +10,14 @@ original_directory = string(pwd);
 external_directory = string(tempname);
 mkdir(external_directory);
 cleanup = onCleanup(@() restore_test_state( ...
-    original_path, original_directory, external_directory)); %#ok<NASGU>
+    original_path, original_directory, external_directory));
 
 restoredefaultpath;
 addpath(project_root, "-begin");
 cd(external_directory);
-clear setup_project run_project run_attitude_pid ...
-    run_project_workflow run_attitude_pid_workflow
+clear setup_project run_project run_attitude_pid run_cascade_pid ...
+    run_project_workflow run_attitude_pid_workflow ...
+    run_cascade_pid_workflow
 
 plant_summary = run_project(false);
 verifyEqual(test_case, string(pwd), external_directory);
@@ -33,6 +34,22 @@ verifyEqual(test_case, string(pid_summary.model_path), fullfile( ...
     project_root, "simulink_models", "twsbr_attitude_pid.slx"));
 verifyEqual(test_case, string(which("run_attitude_pid_workflow")), fullfile( ...
     project_root, "workflows", "run_attitude_pid_workflow.m"));
+
+cascade_summary = run_cascade_pid(false);
+verifyEqual(test_case, string(pwd), external_directory);
+verifyTrue(test_case, all(structfun( ...
+    @(result) result.accepted, cascade_summary.acceptance)));
+verifyTrue(test_case, cascade_summary.comparison.accepted);
+verifyEqual(test_case, string(cascade_summary.model_path), fullfile( ...
+    project_root, "simulink_models", "twsbr_cascade_pid.slx"));
+verifyEqual(test_case, string(cascade_summary.results_path), fullfile( ...
+    project_root, "results", "cascade_pid_results.mat"));
+verifyEqual(test_case, string(cascade_summary.figure_path), fullfile( ...
+    project_root, "results", "cascade_pid_response.png"));
+verifyTrue(test_case, isfile(cascade_summary.results_path));
+verifyTrue(test_case, isfile(cascade_summary.figure_path));
+verifyEqual(test_case, string(which("run_cascade_pid_workflow")), fullfile( ...
+    project_root, "workflows", "run_cascade_pid_workflow.m"));
 end
 
 function restore_test_state(original_path, original_directory, external_directory)
