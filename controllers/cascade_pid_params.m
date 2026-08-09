@@ -72,7 +72,9 @@ for index = 1:numel(positive_fields)
 end
 
 step_ratio = params.sample_time / params.plant_step;
-if ~isfinite(step_ratio) || abs(step_ratio - round(step_ratio)) > 1e-12
+integer_step_ratio = round(step_ratio);
+if ~isfinite(step_ratio) || integer_step_ratio < 1 || ...
+        abs(step_ratio - integer_step_ratio) > 1e-12
     error("twsbr:cascade_pid:invalid_time_ratio", ...
         "Sample time must be an integer multiple of the plant step.");
 end
