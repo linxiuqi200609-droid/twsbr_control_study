@@ -19,6 +19,19 @@ if nargin < 3
 end
 validate_scenario(scenario, params);
 
+source_time = (0:params.plant_step:scenario.duration).';
+[initial_signals, initial_failure_reason] = inspect_initial_sample(scenario);
+if initial_failure_reason ~= ""
+    simulation = make_initial_failure(scenario, initial_failure_reason);
+    return
+end
+position_reference_data = make_source_data( ...
+    source_time, scenario.x_reference, initial_signals(1));
+disturbance_force_data = make_source_data( ...
+    source_time, scenario.force_disturbance, initial_signals(2));
+disturbance_torque_data = make_source_data( ...
+    source_time, scenario.torque_disturbance, initial_signals(3));
+
 project_paths = setup_project();
 model_path = fullfile(project_paths.model_directory, "twsbr_cascade_pid.slx");
 build_cascade_pid_simulink(plant_params, params);
@@ -30,12 +43,6 @@ set_param(model_name + "/nonlinear_plant/state_integrator", ...
     "InitialCondition", mat2str(scenario.initial_state(:), 17));
 set_param(model_name, "StopTime", sprintf("%.17g", scenario.duration));
 
-source_time = (0:params.plant_step:scenario.duration).';
-position_reference_data = make_source_data(source_time, scenario.x_reference);
-disturbance_force_data = make_source_data( ...
-    source_time, scenario.force_disturbance);
-disturbance_torque_data = make_source_data( ...
-    source_time, scenario.torque_disturbance);
 controller_reset_data = [source_time, zeros(size(source_time))];
 controller_reset_data(1, 2) = 1.0;
 model_workspace = get_param(model_name, "ModelWorkspace");
@@ -148,10 +155,9 @@ if ~isstruct(scenario) || ~isscalar(scenario) || ...
         "Scenario must be a scalar structure with all required fields.");
 end
 if ~isnumeric(scenario.initial_state) || ~isreal(scenario.initial_state) || ...
-        ~isvector(scenario.initial_state) || numel(scenario.initial_state) ~= 4 || ...
-        any(~isfinite(scenario.initial_state))
+        ~isvector(scenario.initial_state) || numel(scenario.initial_state) ~= 4
     error("twsbr:simulink:invalid_scenario", ...
-        "Initial state must contain four finite real numeric values.");
+        "Initial state must contain four real numeric values.");
 end
 if ~is_finite_real_scalar(scenario.duration) || scenario.duration <= 0
     error("twsbr:simulink:invalid_scenario", ...
@@ -171,17 +177,61 @@ if ~isnumeric(event_times) || ~isreal(event_times) || ...
 end
 end
 
-function data = make_source_data(time, signal_function)
+function [values, failure_reason] = inspect_initial_sample(scenario)
+values = [scalar_signal(scenario.x_reference, 0.0); ...
+    scalar_signal(scenario.force_disturbance, 0.0); ...
+    scalar_signal(scenario.torque_disturbance, 0.0)];
+failure_reason = "";
+if any(~isfinite(scenario.initial_state))
+    failure_reason = "nonfinite_state";
+elseif any(~isfinite(values))
+    failure_reason = "nonfinite_signal";
+end
+end
+
+function value = scalar_signal(signal_function, time)
 if ~isa(signal_function, "function_handle")
     error("twsbr:simulink:invalid_scenario", ...
         "Scenario signals must be function handles.");
 end
-values = arrayfun(signal_function, time);
+value = signal_function(time);
+if ~isnumeric(value) || ~isreal(value) || ~isscalar(value)
+    error("twsbr:simulink:invalid_signal", ...
+        "Scenario signals must return real numeric scalars.");
+end
+end
+
+function data = make_source_data(time, signal_function, initial_value)
+values = zeros(size(time));
+values(1) = initial_value;
+if numel(time) > 1
+    values(2:end) = arrayfun(signal_function, time(2:end));
+end
 if ~isnumeric(values) || ~isreal(values) || any(~isfinite(values))
     error("twsbr:simulink:invalid_signal", ...
         "Scenario signals must return finite real numeric scalars.");
 end
 data = [time, values(:)];
+end
+
+function simulation = make_initial_failure(scenario, failure_reason)
+simulation = struct();
+simulation.scenario_name = string(scenario.name);
+simulation.time = 0.0;
+simulation.state = zeros(1, 4);
+simulation.position_reference = 0.0;
+simulation.position_error = 0.0;
+simulation.theta_reference = 0.0;
+simulation.theta_reference_raw = 0.0;
+simulation.theta_error = 0.0;
+simulation.u_raw = 0.0;
+simulation.u = 0.0;
+simulation.disturbance_force = 0.0;
+simulation.position_integral = 0.0;
+simulation.saturated = false;
+simulation.success = false;
+simulation.failure_reason = failure_reason;
+simulation.metrics = calculate_metrics(simulation, scenario);
 end
 
 function [time, values] = unpack_log(log_data, signal_width)

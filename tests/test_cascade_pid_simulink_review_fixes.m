@@ -25,15 +25,48 @@ scenario.name = "raw_control_overflow";
 scenario.initial_state(4) = 2.0;
 scenario.duration = 0.001;
 
-matlab_result = simulate_cascade_pid(plant_params, params, scenario);
-simulink_result = run_cascade_pid_simulink(plant_params, params, scenario);
+verify_failure_matches_matlab(test_case, plant_params, params, scenario, ...
+    "nonfinite_control");
+end
 
-verifyFalse(test_case, matlab_result.success);
-verifyFalse(test_case, simulink_result.success);
-verifyEqual(test_case, simulink_result.failure_reason, ...
-    matlab_result.failure_reason);
-verifyEqual(test_case, simulink_result.failure_reason, "nonfinite_control");
-verify_public_numerics_are_finite(test_case, simulink_result);
+function test_nonfinite_initial_state_matches_matlab_failure(test_case)
+plant_params = twsbr_params();
+params = cascade_pid_params(struct(), plant_params);
+scenario = short_zero_scenario("nonfinite_initial_state");
+scenario.initial_state(1) = NaN;
+
+verify_failure_matches_matlab(test_case, plant_params, params, scenario, ...
+    "nonfinite_state");
+end
+
+function test_nonfinite_initial_position_reference_matches_matlab(test_case)
+plant_params = twsbr_params();
+params = cascade_pid_params(struct(), plant_params);
+scenario = short_zero_scenario("nonfinite_position_reference");
+scenario.x_reference = @first_sample_nan;
+
+verify_failure_matches_matlab(test_case, plant_params, params, scenario, ...
+    "nonfinite_signal");
+end
+
+function test_nonfinite_initial_force_matches_matlab(test_case)
+plant_params = twsbr_params();
+params = cascade_pid_params(struct(), plant_params);
+scenario = short_zero_scenario("nonfinite_force");
+scenario.force_disturbance = @first_sample_nan;
+
+verify_failure_matches_matlab(test_case, plant_params, params, scenario, ...
+    "nonfinite_signal");
+end
+
+function test_nonfinite_initial_torque_matches_matlab(test_case)
+plant_params = twsbr_params();
+params = cascade_pid_params(struct(), plant_params);
+scenario = short_zero_scenario("nonfinite_torque");
+scenario.torque_disturbance = @first_sample_nan;
+
+verify_failure_matches_matlab(test_case, plant_params, params, scenario, ...
+    "nonfinite_signal");
 end
 
 function test_nondefault_sample_time_is_rejected(test_case)
@@ -58,6 +91,31 @@ verifyError(test_case, @() build_cascade_pid_simulink( ...
 verifyError(test_case, @() run_cascade_pid_simulink( ...
     plant_params, params, scenario), ...
     "twsbr:cascade_simulation:invalid_timing");
+end
+
+function scenario = short_zero_scenario(name)
+scenario = cascade_pid_scenarios().zero_state;
+scenario.name = name;
+scenario.duration = 0.001;
+end
+
+function values = first_sample_nan(time)
+values = zeros(size(time));
+values(time == 0.0) = NaN;
+end
+
+function verify_failure_matches_matlab( ...
+    test_case, plant_params, params, scenario, expected_reason)
+matlab_result = simulate_cascade_pid(plant_params, params, scenario);
+simulink_result = run_cascade_pid_simulink(plant_params, params, scenario);
+
+verifyFalse(test_case, matlab_result.success);
+verifyFalse(test_case, simulink_result.success);
+verifyEqual(test_case, matlab_result.failure_reason, expected_reason);
+verifyEqual(test_case, simulink_result.failure_reason, ...
+    matlab_result.failure_reason);
+verify_public_numerics_are_finite(test_case, matlab_result);
+verify_public_numerics_are_finite(test_case, simulink_result);
 end
 
 function verify_public_numerics_are_finite(test_case, simulation)
