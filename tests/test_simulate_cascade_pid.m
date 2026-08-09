@@ -381,6 +381,49 @@ for index = 1:numel(metric_names)
         isfinite(value), metric_names{index});
 end
 end
+function test_finite_extreme_tilt_failure_has_finite_degree_metrics(test_case)
+plant_params = twsbr_params();
+params = zero_gain_params(plant_params);
+extreme_tilt = make_scenario("extreme_tilt", ...
+    [0.0; 0.0; realmax; 0.0], 0.001, ...
+    @(time) zeros(size(time)), @(time) zeros(size(time)), 0.0, 0.0);
+
+extreme_result = simulate_cascade_pid(plant_params, params, extreme_tilt);
+verifyFalse(test_case, extreme_result.success);
+verifyEqual(test_case, extreme_result.failure_reason, "tilt_limit");
+verifyEqual(test_case, extreme_result.state(1, 3), realmax);
+verify_public_numerics_are_finite(test_case, extreme_result);
+verifyEqual(test_case, extreme_result.metrics.max_abs_tilt_deg, realmax);
+verifyEqual(test_case, extreme_result.metrics.final_tilt_deg, realmax);
+verifyEqual(test_case, extreme_result.metrics.final_abs_tilt_deg, realmax);
+
+moderate_tilt = make_scenario("moderate_tilt", ...
+    [0.0; 0.0; 1.0; 0.0], 0.001, ...
+    @(time) zeros(size(time)), @(time) zeros(size(time)), 0.0, 0.0);
+moderate_result = simulate_cascade_pid(plant_params, params, moderate_tilt);
+verifyEqual(test_case, moderate_result.metrics.max_abs_tilt_deg, ...
+    rad2deg(1.0), "AbsTol", 1e-12);
+verifyEqual(test_case, moderate_result.metrics.final_tilt_deg, ...
+    rad2deg(1.0), "AbsTol", 1e-12);
+end
+
+function test_finite_extreme_attitude_reference_metric_is_protected(test_case)
+plant_params = twsbr_params();
+params = cascade_pid_params(struct( ...
+    "kp_x", 1.0, "ki_x", 0.0, "kd_x", 0.0, ...
+    "kp_theta", 0.0, "kd_theta", 0.0, ...
+    "theta_reference_limit", realmax), plant_params);
+scenario = make_scenario("extreme_attitude_reference", zeros(4, 1), ...
+    0.001, @(time) realmax .* ones(size(time)), ...
+    @(time) zeros(size(time)), 0.0, 0.0);
+
+simulation = simulate_cascade_pid(plant_params, params, scenario);
+verifyFalse(test_case, simulation.success);
+verifyEqual(test_case, simulation.failure_reason, "theta_reference_limit");
+verify_public_numerics_are_finite(test_case, simulation);
+verifyEqual(test_case, simulation.metrics.max_abs_theta_reference_deg, realmax);
+end
+
 function scenario = make_scenario(name, initial_state, duration, ...
     x_reference, force_disturbance, reference_start, disturbance_end)
 scenario = struct();

@@ -278,8 +278,8 @@ actual_position_error = simulation.position_reference - simulation.state(:, 1);
 actual_tilt_error = simulation.state(:, 3) - simulation.theta_reference;
 
 metrics = struct();
-metrics.max_abs_tilt_deg = rad2deg(max(abs(simulation.state(:, 3))));
-metrics.final_tilt_deg = rad2deg(simulation.state(end, 3));
+metrics.max_abs_tilt_deg = finite_rad2deg(max(abs(simulation.state(:, 3))));
+metrics.final_tilt_deg = finite_rad2deg(simulation.state(end, 3));
 metrics.final_abs_tilt_deg = abs(metrics.final_tilt_deg);
 metrics.max_abs_position = max(abs(simulation.state(:, 1)));
 metrics.max_abs_position_error = max(abs(actual_position_error));
@@ -301,10 +301,17 @@ end
 metrics.max_abs_u_raw = max(abs(simulation.u_raw));
 metrics.max_abs_u = max(abs(simulation.u));
 metrics.max_abs_theta_reference_deg = ...
-    rad2deg(max(abs(simulation.theta_reference)));
+    finite_rad2deg(max(abs(simulation.theta_reference)));
 metrics.max_abs_position_integral = max(abs(simulation.position_integral));
 metrics.saturation_duration = sum(diff(simulation.time) .* ...
     double(simulation.saturated(1:end - 1)));
+end
+
+function degrees = finite_rad2deg(radians)
+degrees = rad2deg(radians);
+overflow = ~isfinite(degrees) & isfinite(radians);
+degrees(overflow & radians >= 0) = realmax;
+degrees(overflow & radians < 0) = -realmax;
 end
 
 function elapsed_time = event_settling_time( ...
