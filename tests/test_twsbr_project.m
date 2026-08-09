@@ -3,10 +3,15 @@ function tests = test_twsbr_project
 tests = functiontests(localfunctions);
 end
 
-function setupOnce(~)
+function setupOnce(test_case)
+test_case.TestData.original_path = path;
 project_root = string(fileparts(fileparts(mfilename("fullpath"))));
 addpath(project_root, "-begin");
 setup_project();
+end
+
+function teardownOnce(test_case)
+path(test_case.TestData.original_path);
 end
 
 function test_run_project_creates_expected_artifacts(test_case)

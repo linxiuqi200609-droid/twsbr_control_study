@@ -3,9 +3,22 @@ function tests = test_project_organization
 tests = functiontests(localfunctions);
 end
 
-function test_public_functions_resolve_from_purpose_directories(test_case)
+function setupOnce(test_case)
+test_case.TestData.original_path = path;
 project_root = string(fileparts(fileparts(mfilename("fullpath"))));
 addpath(project_root, "-begin");
+setup_project();
+end
+
+function teardownOnce(test_case)
+path(test_case.TestData.original_path);
+end
+
+function test_suite_setup_captures_original_path(test_case)
+verifyTrue(test_case, isfield(test_case.TestData, "original_path"));
+end
+function test_public_functions_resolve_from_purpose_directories(test_case)
+project_root = string(fileparts(fileparts(mfilename("fullpath"))));
 paths = setup_project();
 
 [function_names, directory_names] = public_source_locations();
@@ -24,8 +37,6 @@ end
 
 function test_resolved_non_simulink_functions_execute(test_case)
 project_root = string(fileparts(fileparts(mfilename("fullpath"))));
-addpath(project_root, "-begin");
-setup_project();
 
 plant_params = twsbr_params();
 state_dot = twsbr_dynamics(0.0, zeros(4, 1), 0.0, plant_params, 0.0, 0.0);

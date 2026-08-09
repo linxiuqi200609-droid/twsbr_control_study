@@ -3,10 +3,15 @@ function tests = test_attitude_pid_review_fixes
 tests = functiontests(localfunctions);
 end
 
-function setupOnce(~)
+function setupOnce(test_case)
+test_case.TestData.original_path = path;
 project_root = string(fileparts(fileparts(mfilename("fullpath"))));
 addpath(project_root, "-begin");
 setup_project();
+end
+
+function teardownOnce(test_case)
+path(test_case.TestData.original_path);
 end
 
 function test_position_drift_is_not_matlab_failure(test_case)
