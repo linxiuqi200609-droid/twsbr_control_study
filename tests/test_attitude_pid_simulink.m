@@ -38,6 +38,22 @@ for index = 1:numel(blocks)
 end
 end
 
+function test_all_line_names_are_explicit_english(test_case)
+model_path = build_attitude_pid_simulink();
+model_name = "twsbr_attitude_pid";
+load_system(model_path);
+cleanup = onCleanup(@() close_if_loaded(model_name));
+line_handles = find_system(model_name, ...
+    "FindAll", "on", "Type", "line");
+
+verifyGreaterThan(test_case, numel(line_handles), 0);
+for index = 1:numel(line_handles)
+    signal_name = string(get_param(line_handles(index), "Name"));
+    verifyNotEmpty(test_case, regexp(signal_name, ...
+        "^[A-Za-z][A-Za-z0-9_]*$", "once"), signal_name);
+end
+end
+
 function test_zero_state_remains_at_equilibrium(test_case)
 scenarios = attitude_pid_scenarios();
 simulation = run_attitude_pid_simulink( ...

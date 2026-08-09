@@ -175,7 +175,7 @@ The five frozen scenarios are:
 2. `positive_position_step`: position reference steps to `+0.5 m` at `1 s`; duration `8 s`.
 3. `negative_position_step`: position reference steps to `-0.5 m` at `1 s`; duration `8 s`.
 4. `initial_tilt`: initial body tilt is `+5 deg` with zero position reference; duration `5 s`.
-5. `force_impulse`: the reference steps to `+0.5 m` at `1 s`, and a `5 N` force acts from `4.0 s` through `4.2 s`; duration `8 s`.
+5. `force_impulse`: the reference steps to `+0.5 m` at `1 s`, and a `5 N` force acts for `4.0 <= t < 4.2 s`; duration `8 s`.
 
 All scenarios must remain finite, keep absolute body tilt at or below `30 deg`, keep the tilt reference at or below `12 deg`, respect the actuator limit, and stay inside the plant position limit. The scenario-specific acceptance thresholds are:
 

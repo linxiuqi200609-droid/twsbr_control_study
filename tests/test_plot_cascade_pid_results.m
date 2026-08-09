@@ -189,10 +189,8 @@ for panel_index = 1:numel(axes_handles)
     snapshot.panel_titles(panel_index) = string(axis_handle.Title.String);
     snapshot.y_labels(panel_index) = string(axis_handle.YLabel.String);
     snapshot.x_labels(panel_index) = string(axis_handle.XLabel.String);
-    line_handles = findall(axis_handle, "Type", "line");
+    line_handles = flipud(findall(axis_handle, "Type", "line"));
     names = string({line_handles.DisplayName}).';
-    [names, line_order] = sort(names);
-    line_handles = line_handles(line_order);
     snapshot.panels(panel_index).names = names;
     snapshot.panels(panel_index).x_data = ...
         arrayfun(@(line_handle) line_handle.XData(:), ...
@@ -206,8 +204,7 @@ end
 
 function verify_panel_lines(test_case, panel, expected_time, ...
     expected_names, expected_y_data)
-[expected_names, order] = sort(string(expected_names(:)));
-expected_y_data = expected_y_data(order);
+expected_names = string(expected_names(:));
 verifyEqual(test_case, panel.names, expected_names);
 for index = 1:numel(expected_names)
     verifyEqual(test_case, panel.x_data{index}, expected_time, ...

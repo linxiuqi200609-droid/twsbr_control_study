@@ -35,3 +35,18 @@ maximum_error = max(abs(matlab_state - simulink_simulation.state), [], "all");
 
 verifyLessThan(test_case, maximum_error, 1e-4);
 end
+
+function test_all_lines_have_explicit_english_names(test_case)
+model_path = build_twsbr_simulink();
+model_name = "twsbr_plant";
+load_system(model_path);
+cleanup = onCleanup(@() close_system(model_name, 0));
+line_handles = find_system(model_name, "FindAll", "on", "Type", "line");
+
+verifyGreaterThan(test_case, numel(line_handles), 0);
+for index = 1:numel(line_handles)
+    signal_name = string(get_param(line_handles(index), "Name"));
+    verifyNotEmpty(test_case, regexp(signal_name, ...
+        "^[A-Za-z][A-Za-z0-9_]*$", "once"), signal_name);
+end
+end

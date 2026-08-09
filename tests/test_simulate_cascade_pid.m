@@ -407,6 +407,24 @@ verifyEqual(test_case, moderate_result.metrics.final_tilt_deg, ...
     rad2deg(1.0), "AbsTol", 1e-12);
 end
 
+function test_finite_extreme_negative_tilt_preserves_metric_sign(test_case)
+plant_params = twsbr_params();
+params = zero_gain_params(plant_params);
+scenario = make_scenario("extreme_negative_tilt", ...
+    [0.0; 0.0; -realmax; 0.0], 0.001, ...
+    @(time) zeros(size(time)), @(time) zeros(size(time)), 0.0, 0.0);
+
+simulation = simulate_cascade_pid(plant_params, params, scenario);
+
+verifyFalse(test_case, simulation.success);
+verifyEqual(test_case, simulation.failure_reason, "tilt_limit");
+verifyEqual(test_case, simulation.state(1, 3), -realmax);
+verify_public_numerics_are_finite(test_case, simulation);
+verifyEqual(test_case, simulation.metrics.max_abs_tilt_deg, realmax);
+verifyEqual(test_case, simulation.metrics.final_tilt_deg, -realmax);
+verifyEqual(test_case, simulation.metrics.final_abs_tilt_deg, realmax);
+end
+
 function test_finite_extreme_attitude_reference_metric_is_protected(test_case)
 plant_params = twsbr_params();
 params = cascade_pid_params(struct( ...

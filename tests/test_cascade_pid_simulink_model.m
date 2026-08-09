@@ -103,11 +103,10 @@ for index = 1:numel(ports)
         "^[A-Za-z][A-Za-z0-9_]*$", "once"), name);
 end
 
-root_lines = find_system(model_name, "SearchDepth", 1, ...
-    "FindAll", "on", "Type", "line");
-line_names = strings(numel(root_lines), 1);
-for index = 1:numel(root_lines)
-    line_names(index) = string(get_param(root_lines(index), "Name"));
+line_handles = find_system(model_name, "FindAll", "on", "Type", "line");
+line_names = strings(numel(line_handles), 1);
+for index = 1:numel(line_handles)
+    line_names(index) = string(get_param(line_handles(index), "Name"));
     verifyNotEmpty(test_case, regexp(line_names(index), ...
         "^[A-Za-z][A-Za-z0-9_]*$", "once"), line_names(index));
 end

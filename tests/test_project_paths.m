@@ -20,7 +20,7 @@ original_path = path;
 original_directory = string(pwd);
 cleanup = onCleanup(@() restore_project_state( ...
     original_path, original_directory, created_directories, slxc_file, ...
-    created_slxc_file)); %#ok<NASGU>
+    created_slxc_file));
 
 addpath(project_root, "-begin");
 remove_from_path([source_directories; excluded_directories; slxc_file]);
