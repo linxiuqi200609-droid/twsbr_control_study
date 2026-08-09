@@ -17,14 +17,19 @@ if isempty(ver("simulink"))
         "Simulink is required to build the attitude PID model.");
 end
 
-project_root = fileparts(mfilename("fullpath"));
-plant_model_path = fullfile(project_root, "twsbr_plant.slx");
+builder_directory = fileparts(mfilename("fullpath"));
+project_root = fileparts(builder_directory);
+model_directory = fullfile(project_root, "simulink_models");
+if ~isfolder(model_directory)
+    mkdir(model_directory);
+end
+plant_model_path = fullfile(model_directory, "twsbr_plant.slx");
 if ~isfile(plant_model_path)
     plant_model_path = build_twsbr_simulink(plant_params);
 end
 
 model_name = "twsbr_attitude_pid";
-model_path = fullfile(project_root, model_name + ".slx");
+model_path = fullfile(model_directory, model_name + ".slx");
 if bdIsLoaded(model_name)
     close_system(model_name, 0);
 end

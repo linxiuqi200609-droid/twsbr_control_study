@@ -71,11 +71,29 @@ function_names = [ ...
     "attitude_pid_params"; "attitude_pid_step"; "attitude_pid_scenarios"; ...
     "simulate_open_loop"; "simulate_attitude_pid"; ...
     "run_simulink_open_loop"; "run_attitude_pid_simulink"; ...
+    "build_twsbr_simulink"; "build_attitude_pid_simulink"; ...
     "plot_attitude_pid_results"];
 directory_names = [ ...
     repmat("models", 5, 1); repmat("controllers", 2, 1); "scenarios"; ...
-    repmat("simulation", 4, 1); "visualization"];
+    repmat("simulation", 4, 1); repmat("builders", 2, 1); "visualization"];
 end
+
+function test_private_simulink_creators_are_isolated_under_builders(test_case)
+project_root = string(fileparts(fileparts(mfilename("fullpath"))));
+private_directory = fullfile(project_root, "builders", "private");
+old_private_directory = fullfile(project_root, "private");
+function_names = [ ...
+    "create_twsbr_simulink_model"; ...
+    "create_attitude_pid_simulink_model"];
+
+verifyFalse(test_case, is_on_matlab_path(private_directory));
+for index = 1:numel(function_names)
+    file_name = function_names(index) + ".m";
+    verifyTrue(test_case, isfile(fullfile(private_directory, file_name)));
+    verifyFalse(test_case, isfile(fullfile(old_private_directory, file_name)));
+end
+end
+
 function test_root_entry_points_initialize_project_paths(test_case)
 project_root = string(fileparts(fileparts(mfilename("fullpath"))));
 original_path = path;
@@ -97,13 +115,18 @@ clear setup_project
 cd(project_root);
 
 plant_summary = run_project(false);
+expected_plant_model = fullfile( ...
+    project_root, "simulink_models", "twsbr_plant.slx");
 verifyEqual(test_case, plant_summary.controllability_rank, 4);
+verifyEqual(test_case, string(plant_summary.model_path), expected_plant_model);
 for index = 1:numel(source_directories)
     verifyTrue(test_case, is_on_matlab_path(source_directories(index)));
 end
 
 pid_summary = run_attitude_pid(false);
 verifyTrue(test_case, pid_summary.comparison.accepted);
+verifyEqual(test_case, string(pid_summary.model_path), fullfile( ...
+    project_root, "simulink_models", "twsbr_attitude_pid.slx"));
 for index = 1:numel(source_directories)
     verifyTrue(test_case, is_on_matlab_path(source_directories(index)));
 end

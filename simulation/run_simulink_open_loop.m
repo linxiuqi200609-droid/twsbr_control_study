@@ -24,7 +24,9 @@ if ~isnumeric(stop_time) || ~isscalar(stop_time) || ...
         "Stop time must be a positive finite scalar.");
 end
 
-model_path = build_twsbr_simulink(params);
+project_paths = setup_project();
+model_path = fullfile(project_paths.model_directory, "twsbr_plant.slx");
+build_twsbr_simulink(params);
 model_name = "twsbr_plant";
 load_system(model_path);
 cleanup = onCleanup(@() close_loaded_model(model_name));

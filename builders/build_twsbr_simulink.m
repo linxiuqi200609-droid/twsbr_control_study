@@ -12,9 +12,14 @@ if isempty(ver("simulink"))
         "Simulink is required to build the plant model.");
 end
 
-project_root = fileparts(mfilename("fullpath"));
+builder_directory = fileparts(mfilename("fullpath"));
+project_root = fileparts(builder_directory);
+model_directory = fullfile(project_root, "simulink_models");
+if ~isfolder(model_directory)
+    mkdir(model_directory);
+end
 model_name = "twsbr_plant";
-model_path = fullfile(project_root, model_name + ".slx");
+model_path = fullfile(model_directory, model_name + ".slx");
 
 if bdIsLoaded(model_name)
     close_system(model_name, 0);

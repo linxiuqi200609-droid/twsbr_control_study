@@ -18,7 +18,9 @@ if nargin < 3
 end
 validate_scenario(scenario);
 
-model_path = build_attitude_pid_simulink(plant_params, pid_params);
+project_paths = setup_project();
+model_path = fullfile(project_paths.model_directory, "twsbr_attitude_pid.slx");
+build_attitude_pid_simulink(plant_params, pid_params);
 model_name = "twsbr_attitude_pid";
 load_system(model_path);
 cleanup = onCleanup(@() close_model_if_loaded(model_name));

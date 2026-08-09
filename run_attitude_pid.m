@@ -10,7 +10,7 @@ if ~islogical(run_tests_flag) || ~isscalar(run_tests_flag)
 end
 
 project_root = fileparts(mfilename("fullpath"));
-setup_project();
+project_paths = setup_project();
 results_directory = fullfile(project_root, "results");
 if ~isfolder(results_directory)
     mkdir(results_directory);
@@ -42,7 +42,7 @@ comparison.maximum_tilt_error_deg = rad2deg(max(abs( ...
     matlab_theta - simulink_simulation.state(:, 3))));
 comparison.accepted = comparison.maximum_tilt_error_deg < 0.2;
 
-model_path = fullfile(project_root, "twsbr_attitude_pid.slx");
+model_path = fullfile(project_paths.model_directory, "twsbr_attitude_pid.slx");
 results_path = fullfile(results_directory, "attitude_pid_results.mat");
 figure_path = fullfile(results_directory, "attitude_pid_response.png");
 figure_handle = plot_attitude_pid_results( ...
