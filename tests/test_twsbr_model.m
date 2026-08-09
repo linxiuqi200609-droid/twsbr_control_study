@@ -3,6 +3,12 @@ function tests = test_twsbr_model
 tests = functiontests(localfunctions);
 end
 
+function setupOnce(~)
+project_root = string(fileparts(fileparts(mfilename("fullpath"))));
+addpath(project_root, "-begin");
+setup_project();
+end
+
 function test_default_parameters_are_valid(test_case)
 params = twsbr_params();
 

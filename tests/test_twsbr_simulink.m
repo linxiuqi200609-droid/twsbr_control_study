@@ -3,6 +3,12 @@ function tests = test_twsbr_simulink
 tests = functiontests(localfunctions);
 end
 
+function setupOnce(~)
+project_root = string(fileparts(fileparts(mfilename("fullpath"))));
+addpath(project_root, "-begin");
+setup_project();
+end
+
 function test_model_builds_updates_and_runs(test_case)
 verifyNotEmpty(test_case, ver("simulink"));
 model_path = build_twsbr_simulink();

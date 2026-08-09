@@ -3,6 +3,12 @@ function tests = test_twsbr_linear_model
 tests = functiontests(localfunctions);
 end
 
+function setupOnce(~)
+project_root = string(fileparts(fileparts(mfilename("fullpath"))));
+addpath(project_root, "-begin");
+setup_project();
+end
+
 function test_analytical_linearization_matches_numerical(test_case)
 params = twsbr_params();
 [a_analytical, b_analytical] = twsbr_linear_model(params);

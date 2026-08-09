@@ -3,6 +3,12 @@ function tests = test_attitude_pid_review_fixes
 tests = functiontests(localfunctions);
 end
 
+function setupOnce(~)
+project_root = string(fileparts(fileparts(mfilename("fullpath"))));
+addpath(project_root, "-begin");
+setup_project();
+end
+
 function test_position_drift_is_not_matlab_failure(test_case)
 plant_params = twsbr_params();
 scenario = make_position_drift_scenario(plant_params, 0.02);

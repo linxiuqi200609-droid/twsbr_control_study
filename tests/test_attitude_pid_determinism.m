@@ -3,6 +3,12 @@ function tests = test_attitude_pid_determinism
 tests = functiontests(localfunctions);
 end
 
+function setupOnce(~)
+project_root = string(fileparts(fileparts(mfilename("fullpath"))));
+addpath(project_root, "-begin");
+setup_project();
+end
+
 function test_identical_inputs_produce_identical_results(test_case)
 pid_params = attitude_pid_params();
 controller_state = struct("integral_error", 0.1);

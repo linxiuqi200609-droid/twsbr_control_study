@@ -3,6 +3,12 @@ function tests = test_twsbr_simulink_warnings
 tests = functiontests(localfunctions);
 end
 
+function setupOnce(~)
+project_root = string(fileparts(fileparts(mfilename("fullpath"))));
+addpath(project_root, "-begin");
+setup_project();
+end
+
 function test_repeated_model_build_is_warning_free(test_case)
 build_twsbr_simulink();
 

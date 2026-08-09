@@ -11,6 +11,7 @@ end
 
 project_root = fileparts(mfilename("fullpath"));
 addpath(project_root);
+setup_project();
 
 test_results = [];
 if run_tests_flag

@@ -3,6 +3,12 @@ function tests = test_attitude_pid_simulation
 tests = functiontests(localfunctions);
 end
 
+function setupOnce(~)
+project_root = string(fileparts(fileparts(mfilename("fullpath"))));
+addpath(project_root, "-begin");
+setup_project();
+end
+
 function test_rk4_preserves_zero_equilibrium(test_case)
 next_state = twsbr_rk4_step(zeros(4, 1), 0.0, 0.001, ...
     twsbr_params(), 0.0, 0.0);

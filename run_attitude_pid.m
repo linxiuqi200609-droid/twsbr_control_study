@@ -10,6 +10,7 @@ if ~islogical(run_tests_flag) || ~isscalar(run_tests_flag)
 end
 
 project_root = fileparts(mfilename("fullpath"));
+setup_project();
 results_directory = fullfile(project_root, "results");
 if ~isfolder(results_directory)
     mkdir(results_directory);

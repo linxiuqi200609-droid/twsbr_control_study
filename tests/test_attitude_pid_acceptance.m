@@ -3,6 +3,12 @@ function tests = test_attitude_pid_acceptance
 tests = functiontests(localfunctions);
 end
 
+function setupOnce(~)
+project_root = string(fileparts(fileparts(mfilename("fullpath"))));
+addpath(project_root, "-begin");
+setup_project();
+end
+
 function test_scenario_definitions_are_frozen(test_case)
 scenarios = attitude_pid_scenarios();
 

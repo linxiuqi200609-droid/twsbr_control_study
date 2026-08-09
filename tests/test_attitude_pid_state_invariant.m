@@ -3,6 +3,12 @@ function tests = test_attitude_pid_state_invariant
 tests = functiontests(localfunctions);
 end
 
+function setupOnce(~)
+project_root = string(fileparts(fileparts(mfilename("fullpath"))));
+addpath(project_root, "-begin");
+setup_project();
+end
+
 function test_saturated_step_clamps_out_of_range_integral_state(test_case)
 pid_params = attitude_pid_params();
 controller_state = struct( ...
