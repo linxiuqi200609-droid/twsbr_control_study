@@ -11,6 +11,7 @@ if nargin < 2
 else
     params = cascade_pid_params(params, plant_params);
 end
+validate_cascade_pid_timing(params);
 
 if isempty(ver("simulink"))
     error("twsbr:simulink:not_available", ...

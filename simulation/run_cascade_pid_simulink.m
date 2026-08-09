@@ -12,6 +12,7 @@ if nargin < 2
 else
     params = cascade_pid_params(params, plant_params);
 end
+validate_cascade_pid_timing(params);
 if nargin < 3
     scenarios = cascade_pid_scenarios();
     scenario = scenarios.positive_position_step;
@@ -78,23 +79,42 @@ position_integral = resample_held( ...
     position_integral_time, position_integral_values, time);
 disturbance_force = resample_held( ...
     disturbance_force_time, disturbance_force_values, time);
+disturbance_torque = resample_held( ...
+    disturbance_torque_data(:, 1), disturbance_torque_data(:, 2), time);
 saturated = abs(u_raw) > params.u_max;
 
 [success, failure_reason, valid_count] = evaluate_trajectory( ...
-    state, position_reference, disturbance_force, theta_reference, u, ...
+    time, state, position_reference, position_error, ...
+    theta_reference_raw, theta_reference, theta_error, u_raw, u, ...
+    disturbance_force, disturbance_torque, position_integral, ...
     plant_params, params);
-time = time(1:valid_count);
-state = state(1:valid_count, :);
-position_reference = position_reference(1:valid_count);
-position_error = position_error(1:valid_count);
-theta_reference_raw = theta_reference_raw(1:valid_count);
-theta_reference = theta_reference(1:valid_count);
-theta_error = theta_error(1:valid_count);
-u_raw = u_raw(1:valid_count);
-u = u(1:valid_count);
-disturbance_force = disturbance_force(1:valid_count);
-position_integral = position_integral(1:valid_count);
-saturated = saturated(1:valid_count);
+if valid_count == 0
+    time = 0.0;
+    state = zeros(1, 4);
+    position_reference = 0.0;
+    position_error = 0.0;
+    theta_reference_raw = 0.0;
+    theta_reference = 0.0;
+    theta_error = 0.0;
+    u_raw = 0.0;
+    u = 0.0;
+    disturbance_force = 0.0;
+    position_integral = 0.0;
+    saturated = false;
+else
+    time = time(1:valid_count);
+    state = state(1:valid_count, :);
+    position_reference = position_reference(1:valid_count);
+    position_error = position_error(1:valid_count);
+    theta_reference_raw = theta_reference_raw(1:valid_count);
+    theta_reference = theta_reference(1:valid_count);
+    theta_error = theta_error(1:valid_count);
+    u_raw = u_raw(1:valid_count);
+    u = u(1:valid_count);
+    disturbance_force = disturbance_force(1:valid_count);
+    position_integral = position_integral(1:valid_count);
+    saturated = saturated(1:valid_count);
+end
 
 simulation = struct();
 simulation.scenario_name = string(scenario.name);
@@ -187,19 +207,33 @@ end
 end
 
 function [success, reason, valid_count] = evaluate_trajectory( ...
-    state, position_reference, disturbance_force, theta_reference, u, ...
+    time, state, position_reference, position_error, ...
+    theta_reference_raw, theta_reference, theta_error, u_raw, u, ...
+    disturbance_force, disturbance_torque, position_integral, ...
     plant_params, params)
 success = true;
 reason = "";
-valid_count = size(state, 1);
+valid_count = numel(time);
 for index = 1:valid_count
-    if any(~isfinite(state(index, :)))
+    control_values = [position_error(index), theta_reference_raw(index), ...
+        theta_reference(index), theta_error(index), u_raw(index), u(index), ...
+        position_integral(index)];
+    if ~isfinite(time(index)) || any(~isfinite(state(index, :)))
         success = false;
         reason = "nonfinite_state";
+        valid_count = index - 1;
+        return
     elseif any(~isfinite([position_reference(index), ...
-            disturbance_force(index), theta_reference(index), u(index)]))
+            disturbance_force(index), disturbance_torque(index)]))
+        success = false;
+        reason = "nonfinite_signal";
+        valid_count = index - 1;
+        return
+    elseif any(~isfinite(control_values))
         success = false;
         reason = "nonfinite_control";
+        valid_count = index - 1;
+        return
     elseif abs(state(index, 3)) > deg2rad(30.0)
         success = false;
         reason = "tilt_limit";
