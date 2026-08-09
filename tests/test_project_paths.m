@@ -45,6 +45,7 @@ verifyEqual(test_case, paths.project_root, project_root);
 verifyEqual(test_case, paths.result_directory, fullfile(project_root, "results"));
 verifyEqual(test_case, paths.model_directory, fullfile(project_root, "simulink_models"));
 verifyEqual(test_case, paths.test_directory, fullfile(project_root, "tests"));
+verifyEmpty(test_case, paths.missing_code_directories);
 verifyTrue(test_case, all(is_absolute_path(paths.missing_code_directories)));
 end
 

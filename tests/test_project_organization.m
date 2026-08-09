@@ -17,6 +17,15 @@ end
 function test_suite_setup_captures_original_path(test_case)
 verifyTrue(test_case, isfield(test_case.TestData, "original_path"));
 end
+
+function test_root_matlab_files_match_public_entry_point_allowlist(test_case)
+project_root = string(fileparts(fileparts(mfilename("fullpath"))));
+root_files = string({dir(fullfile(project_root, "*.m")).name});
+expected_files = ["run_attitude_pid.m", "run_project.m", "setup_project.m"];
+
+verifyEqual(test_case, sort(root_files), sort(expected_files));
+end
+
 function test_public_functions_resolve_from_purpose_directories(test_case)
 project_root = string(fileparts(fileparts(mfilename("fullpath"))));
 paths = setup_project();
@@ -72,10 +81,12 @@ function_names = [ ...
     "simulate_open_loop"; "simulate_attitude_pid"; ...
     "run_simulink_open_loop"; "run_attitude_pid_simulink"; ...
     "build_twsbr_simulink"; "build_attitude_pid_simulink"; ...
-    "plot_attitude_pid_results"];
+    "plot_attitude_pid_results"; ...
+    "run_project_workflow"; "run_attitude_pid_workflow"];
 directory_names = [ ...
     repmat("models", 5, 1); repmat("controllers", 2, 1); "scenarios"; ...
-    repmat("simulation", 4, 1); repmat("builders", 2, 1); "visualization"];
+    repmat("simulation", 4, 1); repmat("builders", 2, 1); "visualization"; ...
+    repmat("workflows", 2, 1)];
 end
 
 function test_private_simulink_creators_are_isolated_under_builders(test_case)
