@@ -81,6 +81,40 @@ verifyEqual(test_case, simulation.position_integral(11:20), ...
     0.004 .* ones(10, 1), "AbsTol", 1e-12);
 end
 
+function test_controller_updates_at_an_endpoint_sample_boundary(test_case)
+plant_params = twsbr_params();
+params = cascade_pid_params(struct(), plant_params);
+scenario = make_scenario("endpoint_update", zeros(4, 1), 0.01, ...
+    @(time) 0.4 .* ones(size(time)), @(time) zeros(size(time)), 0.0, 0.0);
+
+simulation = simulate_cascade_pid(plant_params, params, scenario);
+verifyEqual(test_case, simulation.time(end), 0.01, "AbsTol", 1e-15);
+verifyEqual(test_case, simulation.position_integral(end), 0.004, ...
+    "AbsTol", 1e-12);
+verifyGreaterThan(test_case, ...
+    abs(simulation.u(end) - simulation.u(end - 1)), 1e-10);
+end
+
+function test_force_at_time_applies_to_the_following_rk4_interval(test_case)
+plant_params = twsbr_params();
+params = zero_gain_params(plant_params);
+force = @(time) 5.0 .* double(time >= 0.0 & time < 0.001);
+scenario = make_scenario("force_alignment", zeros(4, 1), 0.002, ...
+    @(time) zeros(size(time)), force, 0.0, 0.0);
+
+simulation = simulate_cascade_pid(plant_params, params, scenario);
+expected_first = twsbr_rk4_step( ...
+    zeros(4, 1), 0.0, 0.001, plant_params, 5.0, 0.0);
+expected_second = twsbr_rk4_step( ...
+    expected_first, 0.0, 0.001, plant_params, 0.0, 0.0);
+
+verifyEqual(test_case, simulation.disturbance_force, [5.0; 0.0; 0.0]);
+verifyEqual(test_case, simulation.state(2, :).', expected_first, ...
+    "AbsTol", 1e-15);
+verifyEqual(test_case, simulation.state(3, :).', expected_second, ...
+    "AbsTol", 1e-15);
+end
+
 function test_repeated_runs_are_deterministic(test_case)
 plant_params = twsbr_params();
 params = cascade_pid_params(struct(), plant_params);
@@ -171,6 +205,22 @@ verifyEqual(test_case, simulation.failure_reason, "tilt_limit");
 end
 
 
+function test_exact_state_limits_are_legal(test_case)
+plant_params = twsbr_params();
+params = zero_gain_params(plant_params);
+exact_tilt = make_scenario("exact_tilt", ...
+    [0.0; 0.0; deg2rad(30.0); -0.1], 0.001, ...
+    @(time) zeros(size(time)), @(time) zeros(size(time)), 0.0, 0.0);
+exact_position = make_scenario("exact_position", ...
+    [plant_params.x_limit; 0.0; 0.0; 0.0], 0.001, ...
+    @(time) zeros(size(time)), @(time) zeros(size(time)), 0.0, 0.0);
+
+tilt_result = simulate_cascade_pid(plant_params, params, exact_tilt);
+position_result = simulate_cascade_pid(plant_params, params, exact_position);
+verifyTrue(test_case, tilt_result.success);
+verifyTrue(test_case, position_result.success);
+end
+
 function test_reference_and_actuator_limit_failures_are_detected(test_case)
 plant_params = twsbr_params();
 reference_params = cascade_pid_params( ...
@@ -216,6 +266,121 @@ verifyEqual(test_case, saturated_result.metrics.saturation_duration, ...
     0.003, "AbsTol", 1e-15);
 end
 
+function test_failures_publish_only_finite_logs_and_metrics(test_case)
+plant_params = twsbr_params();
+params = cascade_pid_params(struct(), plant_params);
+nonfinite_state = make_scenario("nonfinite_state", ...
+    [NaN; 0.0; 0.0; 0.0], 0.001, ...
+    @(time) zeros(size(time)), @(time) zeros(size(time)), 0.0, 0.0);
+nonfinite_reference = make_scenario("nonfinite_reference", zeros(4, 1), ...
+    0.001, @(time) NaN(size(time)), @(time) zeros(size(time)), 0.0, 0.0);
+nonfinite_disturbance = make_scenario("nonfinite_disturbance", zeros(4, 1), ...
+    0.001, @(time) zeros(size(time)), @(time) Inf(size(time)), 0.0, 0.0);
+overflow_params = cascade_pid_params(struct("kp_x", realmax), plant_params);
+nonfinite_control = make_scenario("nonfinite_control", zeros(4, 1), 0.001, ...
+    @(time) realmax .* ones(size(time)), ...
+    @(time) zeros(size(time)), 0.0, 0.0);
+
+results = { ...
+    simulate_cascade_pid(plant_params, params, nonfinite_state), ...
+    simulate_cascade_pid(plant_params, params, nonfinite_reference), ...
+    simulate_cascade_pid(plant_params, params, nonfinite_disturbance), ...
+    simulate_cascade_pid(plant_params, overflow_params, nonfinite_control)};
+expected_reasons = ["nonfinite_state", "nonfinite_signal", ...
+    "nonfinite_signal", "nonfinite_control"];
+for index = 1:numel(results)
+    verifyFalse(test_case, results{index}.success);
+    verifyEqual(test_case, results{index}.failure_reason, expected_reasons(index));
+    verify_public_numerics_are_finite(test_case, results{index});
+end
+end
+
+function test_nonfinite_rk4_is_a_stable_failure_but_unknown_errors_propagate(test_case)
+plant_params = twsbr_params();
+params = zero_gain_params(plant_params);
+overflow_force = make_scenario("overflow_force", zeros(4, 1), 0.001, ...
+    @(time) zeros(size(time)), ...
+    @(time) realmax .* ones(size(time)), 0.0, 0.0);
+
+simulation = simulate_cascade_pid(plant_params, params, overflow_force);
+verifyFalse(test_case, simulation.success);
+verifyEqual(test_case, simulation.failure_reason, "nonfinite_plant");
+verify_public_numerics_are_finite(test_case, simulation);
+
+singular_params = plant_params;
+singular_params.body_mass = 0.0;
+singular_params.wheel_mass_equiv = 0.0;
+singular_params.body_inertia = 0.0;
+verifyError(test_case, @() simulate_cascade_pid( ...
+    singular_params, params, cascade_pid_scenarios().zero_state), ...
+    "twsbr:dynamics:singular_mass_matrix");
+end
+
+function test_unsettled_and_early_failure_event_metrics_use_finite_horizons(test_case)
+plant_params = twsbr_params();
+params = zero_gain_params(plant_params);
+never_settles = make_scenario("never_settles", zeros(4, 1), 0.004, ...
+    @(time) 0.5 .* double(time >= 0.001), ...
+    @(time) zeros(size(time)), 0.001, 0.0);
+never_recovers = make_scenario("never_recovers", zeros(4, 1), 0.004, ...
+    @(time) 0.5 .* ones(size(time)), ...
+    @(time) zeros(size(time)), 0.0, 0.001);
+early_failure = make_scenario("early_failure", ...
+    [NaN; 0.0; 0.0; 0.0], 0.1, ...
+    @(time) 0.5 .* double(time >= 0.05), ...
+    @(time) zeros(size(time)), 0.05, 0.08);
+
+settling_result = simulate_cascade_pid(plant_params, params, never_settles);
+recovery_result = simulate_cascade_pid(plant_params, params, never_recovers);
+failure_result = simulate_cascade_pid(plant_params, params, early_failure);
+verifyEqual(test_case, settling_result.metrics.position_settling_time, ...
+    0.003, "AbsTol", 1e-15);
+verifyEqual(test_case, recovery_result.metrics.disturbance_recovery_time, ...
+    0.003, "AbsTol", 1e-15);
+verifyEqual(test_case, failure_result.metrics.position_settling_time, ...
+    0.05, "AbsTol", 1e-15);
+verifyEqual(test_case, failure_result.metrics.disturbance_recovery_time, ...
+    0.02, "AbsTol", 1e-15);
+verify_public_numerics_are_finite(test_case, failure_result);
+end
+
+function test_maximum_absolute_position_error_is_hand_derived(test_case)
+plant_params = twsbr_params();
+params = zero_gain_params(plant_params);
+scenario = make_scenario("position_error_metric", ...
+    [0.2; 0.0; 0.0; 0.0], 0.002, ...
+    @(time) -0.3 .* ones(size(time)), ...
+    @(time) zeros(size(time)), 0.0, 0.0);
+
+simulation = simulate_cascade_pid(plant_params, params, scenario);
+verifyEqual(test_case, simulation.metrics.max_abs_position_error, 0.5, ...
+    "AbsTol", 1e-15);
+verifyEqual(test_case, simulation.metrics.max_abs_position, 0.2, ...
+    "AbsTol", 1e-15);
+end
+
+function params = zero_gain_params(plant_params)
+params = cascade_pid_params(struct( ...
+    "kp_x", 0.0, "ki_x", 0.0, "kd_x", 0.0, ...
+    "kp_theta", 0.0, "kd_theta", 0.0), plant_params);
+end
+
+function verify_public_numerics_are_finite(test_case, simulation)
+numeric_fields = {"time", "state", "position_reference", ...
+    "position_error", "theta_reference", "theta_reference_raw", ...
+    "theta_error", "u_raw", "u", "disturbance_force", ...
+    "position_integral", "saturated"};
+for index = 1:numel(numeric_fields)
+    values = simulation.(numeric_fields{index});
+    verifyTrue(test_case, all(isfinite(values), "all"), numeric_fields{index});
+end
+metric_names = fieldnames(simulation.metrics);
+for index = 1:numel(metric_names)
+    value = simulation.metrics.(metric_names{index});
+    verifyTrue(test_case, isnumeric(value) && isscalar(value) && ...
+        isfinite(value), metric_names{index});
+end
+end
 function scenario = make_scenario(name, initial_state, duration, ...
     x_reference, force_disturbance, reference_start, disturbance_end)
 scenario = struct();

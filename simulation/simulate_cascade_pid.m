@@ -30,7 +30,7 @@ controller_state = struct("position_integral", 0.0);
 control = zero_control();
 success = true;
 failure_reason = "";
-final_index = sample_count;
+valid_count = 0;
 
 for index = 1:sample_count
     current_time = time(index);
@@ -41,27 +41,14 @@ for index = 1:sample_count
     torque = scalar_signal(scenario.torque_disturbance, current_time, ...
         "torque_disturbance");
 
-    position_reference(index) = reference;
-    disturbance_force(index) = force;
-
     if any(~isfinite(state(index, :)))
-        [position_error(index), theta_reference_raw(index), ...
-            theta_reference(index), theta_error(index), u_raw(index), ...
-            u(index), position_integral(index), saturated(index)] = ...
-            control_values(control);
         success = false;
         failure_reason = "nonfinite_state";
-        final_index = index;
         break
     end
     if any(~isfinite([reference, force, torque]))
-        [position_error(index), theta_reference_raw(index), ...
-            theta_reference(index), theta_error(index), u_raw(index), ...
-            u(index), position_integral(index), saturated(index)] = ...
-            control_values(control);
         success = false;
         failure_reason = "nonfinite_signal";
-        final_index = index;
         break
     end
 
@@ -73,13 +60,21 @@ for index = 1:sample_count
             if exception.identifier == "twsbr:cascade_pid:nonfinite_output"
                 success = false;
                 failure_reason = "nonfinite_control";
-                final_index = index;
                 break
             end
             rethrow(exception);
         end
     end
 
+    control_values_vector = [control.position_error, ...
+        control.theta_reference_raw, control.theta_reference, ...
+        control.theta_error, control.u_raw, control.u, ...
+        control.position_integral];
+    if any(~isfinite(control_values_vector))
+        success = false;
+        failure_reason = "nonfinite_control";
+        break
+    end
     position_error(index) = control.position_error;
     theta_reference_raw(index) = control.theta_reference_raw;
     theta_reference(index) = control.theta_reference;
@@ -88,36 +83,70 @@ for index = 1:sample_count
     u(index) = control.u;
     position_integral(index) = control.position_integral;
     saturated(index) = control.saturated;
+    position_reference(index) = reference;
+    disturbance_force(index) = force;
+    valid_count = index;
 
     [failed, reason] = check_failure(state(index, :), reference, ...
         force, torque, control, plant_params, params);
     if failed
         success = false;
         failure_reason = reason;
-        final_index = index;
         break
     end
     if index == sample_count
         break
     end
 
-    next_state = twsbr_rk4_step(state(index, :).', control.u, ...
-        step_size, plant_params, force, torque);
-    state(index + 1, :) = next_state.';
+    try
+        next_state = twsbr_rk4_step(state(index, :).', control.u, ...
+            step_size, plant_params, force, torque);
+    catch exception
+        numerical_errors = ["twsbr:dynamics:invalid_state", ...
+            "twsbr:dynamics:invalid_input"];
+        if any(strcmp(exception.identifier, numerical_errors))
+            success = false;
+            failure_reason = "nonfinite_plant";
+            break
+        end
+        rethrow(exception);
+    end
+    if ~isnumeric(next_state) || ~isreal(next_state) || ...
+            numel(next_state) ~= 4 || any(~isfinite(next_state))
+        success = false;
+        failure_reason = "nonfinite_plant";
+        break
+    end
+    state(index + 1, :) = next_state(:).';
 end
 
-time = time(1:final_index);
-state = state(1:final_index, :);
-position_reference = position_reference(1:final_index);
-position_error = position_error(1:final_index);
-theta_reference_raw = theta_reference_raw(1:final_index);
-theta_reference = theta_reference(1:final_index);
-theta_error = theta_error(1:final_index);
-u_raw = u_raw(1:final_index);
-u = u(1:final_index);
-disturbance_force = disturbance_force(1:final_index);
-position_integral = position_integral(1:final_index);
-saturated = saturated(1:final_index);
+if valid_count == 0
+    time = 0.0;
+    state = zeros(1, 4);
+    position_reference = 0.0;
+    position_error = 0.0;
+    theta_reference_raw = 0.0;
+    theta_reference = 0.0;
+    theta_error = 0.0;
+    u_raw = 0.0;
+    u = 0.0;
+    disturbance_force = 0.0;
+    position_integral = 0.0;
+    saturated = false;
+else
+    time = time(1:valid_count);
+    state = state(1:valid_count, :);
+    position_reference = position_reference(1:valid_count);
+    position_error = position_error(1:valid_count);
+    theta_reference_raw = theta_reference_raw(1:valid_count);
+    theta_reference = theta_reference(1:valid_count);
+    theta_error = theta_error(1:valid_count);
+    u_raw = u_raw(1:valid_count);
+    u = u(1:valid_count);
+    disturbance_force = disturbance_force(1:valid_count);
+    position_integral = position_integral(1:valid_count);
+    saturated = saturated(1:valid_count);
+end
 
 simulation = struct();
 simulation.scenario_name = string(scenario.name);
@@ -214,19 +243,6 @@ control.position_integral = 0.0;
 control.saturated = false;
 end
 
-function [position_error, theta_reference_raw, theta_reference, ...
-    theta_error, u_raw, u, position_integral, saturated] = ...
-    control_values(control)
-position_error = control.position_error;
-theta_reference_raw = control.theta_reference_raw;
-theta_reference = control.theta_reference;
-theta_error = control.theta_error;
-u_raw = control.u_raw;
-u = control.u;
-position_integral = control.position_integral;
-saturated = control.saturated;
-end
-
 function [failed, reason] = check_failure(state, reference, force, torque, ...
     control, plant_params, params)
 failed = false;
@@ -266,12 +282,15 @@ metrics.max_abs_tilt_deg = rad2deg(max(abs(simulation.state(:, 3))));
 metrics.final_tilt_deg = rad2deg(simulation.state(end, 3));
 metrics.final_abs_tilt_deg = abs(metrics.final_tilt_deg);
 metrics.max_abs_position = max(abs(simulation.state(:, 1)));
+metrics.max_abs_position_error = max(abs(actual_position_error));
 metrics.final_position_error = actual_position_error(end);
 metrics.final_abs_position_error = abs(metrics.final_position_error);
 metrics.position_settling_time = event_settling_time( ...
-    simulation.time, actual_position_error, scenario.reference_start, 0.05);
+    simulation.time, actual_position_error, scenario.reference_start, ...
+    0.05, scenario.duration);
 metrics.disturbance_recovery_time = event_settling_time( ...
-    simulation.time, actual_position_error, scenario.disturbance_end, 0.10);
+    simulation.time, actual_position_error, scenario.disturbance_end, ...
+    0.10, scenario.duration);
 if numel(simulation.time) < 2
     metrics.position_iae = 0.0;
     metrics.tilt_iae = 0.0;
@@ -288,13 +307,14 @@ metrics.saturation_duration = sum(diff(simulation.time) .* ...
     double(simulation.saturated(1:end - 1)));
 end
 
-function elapsed_time = event_settling_time(time, error, event_time, tolerance)
+function elapsed_time = event_settling_time( ...
+    time, error, event_time, tolerance, scenario_duration)
 if event_time == 0.0
     elapsed_time = 0.0;
     return
 end
 indices = find(time >= event_time - 1e-12);
-elapsed_time = inf;
+elapsed_time = max(0.0, scenario_duration - event_time);
 remains_settled = true;
 for offset = numel(indices):-1:1
     index = indices(offset);
