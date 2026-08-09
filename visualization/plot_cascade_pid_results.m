@@ -6,6 +6,11 @@ if ~isscalar(output_path) || ismissing(output_path) || strlength(output_path) ==
     error("twsbr:cascade_plot:invalid_output_path", ...
         "output_path must be a nonempty text scalar.");
 end
+[~, ~, output_extension] = fileparts(output_path);
+if ~strcmpi(output_extension, ".png")
+    error("twsbr:cascade_plot:invalid_output_extension", ...
+        "output_path must use a .png extension.");
+end
 
 output_directory = string(fileparts(output_path));
 if strlength(output_directory) > 0 && ~isfolder(output_directory)
@@ -23,7 +28,7 @@ figure_handle = figure( ...
     "Color", "white", ...
     "Name", "Cascade PID Response", ...
     "Position", [100, 100, 1100, 900]);
-figure_cleanup = onCleanup(@() close_if_valid(figure_handle));
+figure_cleanup = onCleanup(@() delete_if_valid(figure_handle));
 layout = tiledlayout(figure_handle, 5, 1, ...
     "TileSpacing", "compact", "Padding", "compact");
 title(layout, sprintf("Cascade PID: %s", ...
@@ -81,12 +86,12 @@ grid(axis_handle, "on");
 
 drawnow;
 exportgraphics(figure_handle, output_path, "Resolution", 160);
-close(figure_handle);
+delete(figure_handle);
 clear figure_cleanup;
 end
 
-function close_if_valid(figure_handle)
+function delete_if_valid(figure_handle)
 if isgraphics(figure_handle, "figure")
-    close(figure_handle);
+    delete(figure_handle);
 end
 end
