@@ -241,7 +241,7 @@ if any(~isfinite(state))
 elseif any(~isfinite([reference, force, torque, control_values_vector]))
     failed = true;
     reason = "nonfinite_control";
-elseif abs(state(3)) > deg2rad(plant_params.theta_fail_deg)
+elseif abs(state(3)) > deg2rad(30.0)
     failed = true;
     reason = "tilt_limit";
 elseif abs(state(1)) > plant_params.x_limit

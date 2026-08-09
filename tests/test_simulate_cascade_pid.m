@@ -158,6 +158,19 @@ verifyFalse(test_case, reference_result.success);
 verifyEqual(test_case, reference_result.failure_reason, "nonfinite_signal");
 end
 
+function test_tilt_failure_boundary_is_fixed_at_thirty_degrees(test_case)
+plant_params = twsbr_params(struct("theta_fail_deg", 35.0));
+params = cascade_pid_params(struct(), plant_params);
+scenario = make_scenario("fixed_tilt_limit", ...
+    [0.0; 0.0; deg2rad(31.0); 0.0], 0.001, ...
+    @(time) zeros(size(time)), @(time) zeros(size(time)), 0.0, 0.0);
+
+simulation = simulate_cascade_pid(plant_params, params, scenario);
+verifyFalse(test_case, simulation.success);
+verifyEqual(test_case, simulation.failure_reason, "tilt_limit");
+end
+
+
 function test_reference_and_actuator_limit_failures_are_detected(test_case)
 plant_params = twsbr_params();
 reference_params = cascade_pid_params( ...
