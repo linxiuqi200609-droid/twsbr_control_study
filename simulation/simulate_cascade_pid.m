@@ -164,7 +164,7 @@ simulation.position_integral = position_integral;
 simulation.saturated = saturated;
 simulation.success = success;
 simulation.failure_reason = failure_reason;
-simulation.metrics = calculate_metrics(simulation, scenario);
+simulation.metrics = calculate_metrics(simulation, scenario, params.plant_step);
 end
 
 function validate_inputs(plant_params, params, scenario)
@@ -273,7 +273,7 @@ elseif abs(control.u) > min(params.u_max, plant_params.u_max)
 end
 end
 
-function metrics = calculate_metrics(simulation, scenario)
+function metrics = calculate_metrics(simulation, scenario, plant_step)
 actual_position_error = simulation.position_reference - simulation.state(:, 1);
 actual_tilt_error = simulation.state(:, 3) - simulation.theta_reference;
 
@@ -287,10 +287,10 @@ metrics.final_position_error = actual_position_error(end);
 metrics.final_abs_position_error = abs(metrics.final_position_error);
 metrics.position_settling_time = event_settling_time( ...
     simulation.time, actual_position_error, scenario.reference_start, ...
-    0.05, scenario.duration);
+    0.05, scenario.duration, plant_step);
 metrics.disturbance_recovery_time = event_settling_time( ...
     simulation.time, actual_position_error, scenario.disturbance_end, ...
-    0.10, scenario.duration);
+    0.10, scenario.duration, plant_step);
 if numel(simulation.time) < 2
     metrics.position_iae = 0.0;
     metrics.tilt_iae = 0.0;
@@ -315,13 +315,13 @@ degrees(overflow & radians < 0) = -realmax;
 end
 
 function elapsed_time = event_settling_time( ...
-    time, error, event_time, tolerance, scenario_duration)
+    time, error, event_time, tolerance, scenario_duration, plant_step)
 if event_time == 0.0
     elapsed_time = 0.0;
     return
 end
 indices = find(time >= event_time - 1e-12);
-elapsed_time = max(0.0, scenario_duration - event_time);
+elapsed_time = max(0.0, scenario_duration - event_time) + plant_step;
 remains_settled = true;
 for offset = numel(indices):-1:1
     index = indices(offset);

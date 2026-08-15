@@ -22,15 +22,19 @@ validate_scenario(scenario, params);
 source_time = (0:params.plant_step:scenario.duration).';
 [initial_signals, initial_failure_reason] = inspect_initial_sample(scenario);
 if initial_failure_reason ~= ""
-    simulation = make_initial_failure(scenario, initial_failure_reason);
+    simulation = make_initial_failure( ...
+        scenario, initial_failure_reason, params.plant_step);
     return
 end
-position_reference_data = make_source_data( ...
-    source_time, scenario.x_reference, initial_signals(1));
-disturbance_force_data = make_source_data( ...
-    source_time, scenario.force_disturbance, initial_signals(2));
-disturbance_torque_data = make_source_data( ...
-    source_time, scenario.torque_disturbance, initial_signals(3));
+[position_reference_data, disturbance_force_data, ...
+    disturbance_torque_data, first_nonfinite_signal_index] = ...
+    make_source_data(source_time, scenario, initial_signals);
+source_time = position_reference_data(:, 1);
+simulation_duration = scenario.duration;
+has_delayed_nonfinite_signal = first_nonfinite_signal_index > 0;
+if has_delayed_nonfinite_signal
+    simulation_duration = source_time(end);
+end
 
 project_paths = setup_project();
 model_path = fullfile(project_paths.model_directory, "twsbr_cascade_pid.slx");
@@ -41,7 +45,7 @@ cleanup = onCleanup(@() close_model_if_loaded(model_name));
 
 set_param(model_name + "/nonlinear_plant/state_integrator", ...
     "InitialCondition", mat2str(scenario.initial_state(:), 17));
-set_param(model_name, "StopTime", sprintf("%.17g", scenario.duration));
+set_param(model_name, "StopTime", sprintf("%.17g", simulation_duration));
 
 controller_reset_data = [source_time, zeros(size(source_time))];
 controller_reset_data(1, 2) = 1.0;
@@ -95,6 +99,10 @@ saturated = abs(u_raw) > params.u_max;
     theta_reference_raw, theta_reference, theta_error, u_raw, u, ...
     disturbance_force, disturbance_torque, position_integral, ...
     plant_params, params);
+if has_delayed_nonfinite_signal && success
+    success = false;
+    failure_reason = "nonfinite_signal";
+end
 if valid_count == 0
     time = 0.0;
     state = zeros(1, 4);
@@ -139,7 +147,7 @@ simulation.position_integral = position_integral;
 simulation.saturated = saturated;
 simulation.success = success;
 simulation.failure_reason = failure_reason;
-simulation.metrics = calculate_metrics(simulation, scenario);
+simulation.metrics = calculate_metrics(simulation, scenario, params.plant_step);
 
 clear cleanup;
 close_system(model_name, 0);
@@ -201,20 +209,32 @@ if ~isnumeric(value) || ~isreal(value) || ~isscalar(value)
 end
 end
 
-function data = make_source_data(time, signal_function, initial_value)
-values = zeros(size(time));
-values(1) = initial_value;
-if numel(time) > 1
-    values(2:end) = arrayfun(signal_function, time(2:end));
+function [position_reference_data, disturbance_force_data, ...
+    disturbance_torque_data, first_nonfinite_index] = ...
+    make_source_data(time, scenario, initial_values)
+values = zeros(numel(time), 3);
+values(1, :) = initial_values(:).';
+first_nonfinite_index = 0;
+valid_count = numel(time);
+for index = 2:numel(time)
+    values(index, :) = [ ...
+        scalar_signal(scenario.x_reference, time(index)); ...
+        scalar_signal(scenario.force_disturbance, time(index)); ...
+        scalar_signal(scenario.torque_disturbance, time(index))].';
+    if any(~isfinite(values(index, :)))
+        first_nonfinite_index = index;
+        valid_count = index - 1;
+        break
+    end
 end
-if ~isnumeric(values) || ~isreal(values) || any(~isfinite(values))
-    error("twsbr:simulink:invalid_signal", ...
-        "Scenario signals must return finite real numeric scalars.");
-end
-data = [time, values(:)];
+time = time(1:valid_count);
+values = values(1:valid_count, :);
+position_reference_data = [time, values(:, 1)];
+disturbance_force_data = [time, values(:, 2)];
+disturbance_torque_data = [time, values(:, 3)];
 end
 
-function simulation = make_initial_failure(scenario, failure_reason)
+function simulation = make_initial_failure(scenario, failure_reason, plant_step)
 simulation = struct();
 simulation.scenario_name = string(scenario.name);
 simulation.time = 0.0;
@@ -231,7 +251,7 @@ simulation.position_integral = 0.0;
 simulation.saturated = false;
 simulation.success = false;
 simulation.failure_reason = failure_reason;
-simulation.metrics = calculate_metrics(simulation, scenario);
+simulation.metrics = calculate_metrics(simulation, scenario, plant_step);
 end
 
 function [time, values] = unpack_log(log_data, signal_width)
@@ -305,7 +325,7 @@ for index = 1:valid_count
 end
 end
 
-function metrics = calculate_metrics(simulation, scenario)
+function metrics = calculate_metrics(simulation, scenario, plant_step)
 actual_position_error = simulation.position_reference - simulation.state(:, 1);
 actual_tilt_error = simulation.state(:, 3) - simulation.theta_reference;
 
@@ -319,10 +339,10 @@ metrics.final_position_error = actual_position_error(end);
 metrics.final_abs_position_error = abs(metrics.final_position_error);
 metrics.position_settling_time = event_settling_time( ...
     simulation.time, actual_position_error, scenario.reference_start, ...
-    0.05, scenario.duration);
+    0.05, scenario.duration, plant_step);
 metrics.disturbance_recovery_time = event_settling_time( ...
     simulation.time, actual_position_error, scenario.disturbance_end, ...
-    0.10, scenario.duration);
+    0.10, scenario.duration, plant_step);
 if numel(simulation.time) < 2
     metrics.position_iae = 0.0;
     metrics.tilt_iae = 0.0;
@@ -347,13 +367,13 @@ degrees(overflow & radians < 0) = -realmax;
 end
 
 function elapsed_time = event_settling_time( ...
-    time, error, event_time, tolerance, scenario_duration)
+    time, error, event_time, tolerance, scenario_duration, plant_step)
 if event_time == 0.0
     elapsed_time = 0.0;
     return
 end
 indices = find(time >= event_time - 1e-12);
-elapsed_time = max(0.0, scenario_duration - event_time);
+elapsed_time = max(0.0, scenario_duration - event_time) + plant_step;
 remains_settled = true;
 for offset = numel(indices):-1:1
     index = indices(offset);

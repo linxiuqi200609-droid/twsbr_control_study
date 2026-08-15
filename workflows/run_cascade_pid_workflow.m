@@ -62,10 +62,7 @@ end
 test_results = matlab.unittest.TestResult.empty;
 if run_tests_flag
     test_results = runtests(project_paths.test_directory);
-    if any([test_results.Failed])
-        error("twsbr:cascade_pid:test_failure", ...
-            "At least one project test failed.");
-    end
+    assert_cascade_pid_test_success(test_results);
 end
 
 summary = struct();
@@ -80,6 +77,8 @@ summary.matlab_simulations = matlab_simulations;
 summary.simulink_simulation = simulink_simulation;
 summary.acceptance = acceptance;
 summary.comparison = comparison;
+summary.accepted = logical(all(structfun( ...
+    @(result) result.accepted, acceptance)) && comparison.accepted);
 summary.test_results = test_results;
 
 print_summary(summary, scenario_names);

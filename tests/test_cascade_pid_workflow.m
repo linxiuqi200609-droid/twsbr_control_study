@@ -18,15 +18,18 @@ path(test_case.TestData.original_path);
 end
 
 function test_workflow_exports_accepted_summary_and_artifacts(test_case)
-summary = run_cascade_pid_workflow(false);
+summary = run_cascade_pid(false);
 expected_summary_fields = sort([ ...
-    "acceptance"; "cascade_params"; "comparison"; "figure_path"; ...
-    "matlab_simulations"; "model_path"; "plant_params"; ...
-    "project_root"; "results_path"; "scenarios"; ...
+    "acceptance"; "accepted"; "cascade_params"; "comparison"; ...
+    "figure_path"; "matlab_simulations"; "model_path"; ...
+    "plant_params"; "project_root"; "results_path"; "scenarios"; ...
     "simulink_simulation"; "test_results"]);
 
 verifyEqual(test_case, sort(string(fieldnames(summary))), ...
     expected_summary_fields);
+verifyTrue(test_case, islogical(summary.accepted) && isscalar(summary.accepted));
+verifyTrue(test_case, summary.accepted);
+assert(summary.accepted);
 verifyTrue(test_case, all(structfun( ...
     @(result) result.accepted, summary.acceptance)));
 verifyTrue(test_case, summary.comparison.accepted);
@@ -60,6 +63,22 @@ verifyGreaterThan(test_case, image_information.Width, 0);
 verifyGreaterThan(test_case, image_information.Height, 0);
 end
 
+function test_test_gate_rejects_incomplete_results(test_case)
+fixture_directory = string(tempname);
+mkdir(fixture_directory);
+cleanup = onCleanup(@() remove_directory_if_present(fixture_directory));
+fixture_path = fullfile(fixture_directory, "test_incomplete_fixture.m");
+write_incomplete_fixture(fixture_path);
+
+test_results = runtests(fixture_path);
+
+verifyEqual(test_case, numel(test_results), 1);
+verifyFalse(test_case, any([test_results.Failed]));
+verifyTrue(test_case, all([test_results.Incomplete]));
+verifyError(test_case, @() assert_cascade_pid_test_success(test_results), ...
+    "twsbr:cascade_pid:test_incomplete");
+end
+
 function test_workflow_rejects_nonlogical_test_flag(test_case)
 verifyError(test_case, @() run_cascade_pid_workflow(1), ...
     "twsbr:cascade_pid:invalid_test_flag");
@@ -84,5 +103,24 @@ required_text = [ ...
 for index = 1:numel(required_text)
     verifyTrue(test_case, contains(readme, required_text(index)), ...
         required_text(index));
+end
+end
+
+function write_incomplete_fixture(fixture_path)
+fixture_text = strjoin([ ...
+    "function tests = test_incomplete_fixture"; ...
+    "tests = functiontests(localfunctions);"; ...
+    "end"; ...
+    "function test_assumption(test_case)"; ...
+    "assumeTrue(test_case, false);"; ...
+    "end"], newline);
+file_identifier = fopen(fixture_path, "w");
+file_cleanup = onCleanup(@() fclose(file_identifier));
+fprintf(file_identifier, "%s", fixture_text);
+end
+
+function remove_directory_if_present(directory_path)
+if isfolder(directory_path)
+    rmdir(directory_path, "s");
 end
 end
