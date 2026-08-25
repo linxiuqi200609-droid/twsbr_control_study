@@ -110,6 +110,15 @@ directory_names = ["models"; "controllers"; "simulation"; "scenarios"; ...
     "optimization"; "experiments"; "evaluation"; "reporting"];
 ```
 
+Replace the existing unconditional `verifyEmpty(paths.missing_code_directories)` assertion with an exact comparison against allowlisted directories that do not yet exist:
+
+```matlab
+expected_missing = source_directories(~isfolder(source_directories));
+verifyEqual(test_case, paths.missing_code_directories, expected_missing);
+```
+
+This keeps the test valid during phased implementation and after every public directory contains committed source files.
+
 - [ ] **Step 2: Run the focused tests and verify failure**
 
 Run:
@@ -230,7 +239,7 @@ Expected: failure because the three production functions do not exist.
 
 - [ ] **Step 3: Implement exact generic scenarios and legacy decoding**
 
-Each generic scenario must contain exactly these public fields:
+Each generic scenario must contain at least these public fields:
 
 ```matlab
 scenario = struct( ...
@@ -244,6 +253,15 @@ scenario = struct( ...
     "reference_start", reference_start, ...
     "disturbance_end", disturbance_end, ...
     "measurement_noise_std", zeros(4, 1));
+```
+
+Also include numeric serialization fields `reference_amplitude`, `force_amplitude`, `force_start`, `force_duration`, `torque_amplitude`, `torque_start`, `torque_duration`, and `constant_force`. Function handles must be constructed from these values. This makes training and held-out scenario JSON complete without attempting to serialize function handles.
+
+Extend the scenario test with:
+
+```matlab
+verifyEqual(test_case, scenarios.T2_position_step_0p5m.reference_amplitude, 0.5);
+verifyEqual(test_case, scenarios.T3_impulse_disturbance.force_duration, 0.2);
 ```
 
 `controller_parameter_space.m` returns `name`, `parameter_names`, `lower_bounds`, `upper_bounds`, and `dimension`. Use the exact bounds from Section 5 of the spec. `decode_controller_vector.m` checks dimension, bounds, real finiteness, applies `10.^vector`, and calls the existing parameter validators:

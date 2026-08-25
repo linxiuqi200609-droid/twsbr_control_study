@@ -170,6 +170,29 @@ verifyEqual(test_case, metrics.failure_reason, "task_not_settled");
 end
 ```
 
+Add this exact local fixture to `test_control_metrics.m`:
+
+```matlab
+function simulation = make_unsettled_successful_simulation()
+simulation = struct();
+simulation.controller_name = "TEST";
+simulation.scenario_name = "unsettled";
+simulation.seed = 0;
+simulation.time = (0:0.1:1).';
+sample_count = numel(simulation.time);
+simulation.state = [ones(sample_count,1), 0.5*ones(sample_count,1), ...
+    0.1*ones(sample_count,1), zeros(sample_count,1)];
+simulation.position_reference = zeros(sample_count,1);
+simulation.u_raw = zeros(sample_count,1);
+simulation.u = zeros(sample_count,1);
+simulation.saturated = false(sample_count,1);
+simulation.success = true;
+simulation.failure_reason = "";
+simulation.survived_time = 1.0;
+simulation.runtime_seconds = 0.001;
+end
+```
+
 - [ ] **Step 2: Run metric tests and verify failure**
 
 ```powershell
@@ -248,6 +271,19 @@ verifyEqual(test_case, va, vb);
 verifyEqual(test_case, ha, hb);
 verifyEqual(test_case, middle, before);
 verifyEqual(test_case, after, before);
+end
+```
+
+Add this exact local helper to `test_differential_evolution.m`:
+
+```matlab
+function [best, value, history] = run_small_de()
+space = struct("dimension", 2, "lower_bounds", [-1,-1], ...
+    "upper_bounds", [1,1]);
+options = struct("population_size", 4, "evaluation_budget", 12, ...
+    "seed", 5, "mutation_factor", 0.8, "crossover_rate", 0.9, ...
+    "starter_vector", [0.5,-0.5]);
+[best, value, history] = differential_evolution(@(x) sum(x.^2), space, options);
 end
 ```
 
@@ -507,7 +543,7 @@ git commit -m "feat: add isolated test and Monte Carlo scenarios"
 ```matlab
 function test_deterministic_batch_keeps_every_controller_scenario_pair(test_case)
 [vectors, config] = starter_vectors_for_test();
-scenario_struct = heldout_scenarios(2);
+scenario_struct = heldout_scenarios(10);
 names = fieldnames(scenario_struct);
 scenario_struct = rmfield(scenario_struct, names(3:end));
 [metrics, raw] = run_deterministic_batch(vectors, twsbr_params(), ...
@@ -530,6 +566,21 @@ for run_index = 0:1
     verifyEqual(test_case, numel(unique(rows.force_amplitude)), 1);
     verifyEqual(test_case, numel(unique(rows.measurement_noise_seed)), 1);
 end
+end
+```
+
+Add this exact local fixture to both `test_deterministic_batch.m` and `test_monte_carlo_pairing.m`:
+
+```matlab
+function [vectors, config] = starter_vectors_for_test()
+config = experiment_config("quick");
+vectors = struct();
+vectors.ATTITUDE_PID = log10([1.9,0.2,0.18]);
+vectors.CASCADE_PID = log10([0.241,0.000396,0.193,9.255,1.011]);
+vectors.FUZZY_PID = [log10([0.241,0.000396,0.193, ...
+    9.255,0.05,1.011]),0.2,0.2,0.2];
+vectors.LQR = log10([10,1,200,10,0.1]);
+vectors.LQI = log10([10,1,200,10,100,0.1]);
 end
 ```
 

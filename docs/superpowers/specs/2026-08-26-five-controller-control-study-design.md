@@ -152,7 +152,7 @@ The input normalization ranges are fixed physical configuration values. Online g
 NB, NM, NS, ZO, PS, PM, PB
 ```
 
-It uses fixed symmetric triangular membership functions, fixed `7 x 7` rule matrices, product or minimum implication selected once in configuration, weighted-average defuzzification, and no Fuzzy Logic Toolbox dependency. MATLAB numerical simulation and Simulink call the same code-generation-compatible fuzzy inference function.
+It uses fixed symmetric triangular membership functions, fixed `7 x 7` rule matrices, minimum t-norm firing strengths, singleton rule consequents, weighted-average defuzzification, and no Fuzzy Logic Toolbox dependency. MATLAB numerical simulation and Simulink call the same code-generation-compatible fuzzy inference function.
 
 The trained vector has nine variables:
 

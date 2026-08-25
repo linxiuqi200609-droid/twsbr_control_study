@@ -34,7 +34,7 @@
 - `evaluation/bootstrap_mean_ci.m`, `wilson_interval.m`, `cliffs_delta.m`, `holm_adjust.m`: deterministic statistical primitives.
 - `evaluation/summarize_deterministic_results.m`, `summarize_monte_carlo_results.m`, `run_nonparametric_tests.m`: result tables.
 - `visualization/plot_nominal_response.m`, `plot_saturation_response.m`, `plot_disturbance_recovery.m`, `plot_monte_carlo_boxplots.m`, `plot_performance_pareto.m`, `plot_normalized_radar.m`, `generate_paper_figures.m`: publication-oriented outputs.
-- `reporting/save_raw_simulation.m`, `write_results_tables.m`, `build_run_manifest.m`: artifact export.
+- `reporting/save_raw_simulation.m`, `scenario_to_record.m`, `write_json_file.m`, `write_results_tables.m`, `build_run_manifest.m`: artifact export.
 - `workflows/run_control_study_workflow.m`: orchestration behind the root wrapper.
 - `run_control_study.m`: stable public entry point.
 - `README.md`, `docs/IMPLEMENTATION_MAPPING.md`, `.gitignore`: usage, research mapping, and artifact policy.
@@ -215,6 +215,14 @@ verifyTrue(test_case, is_simulink_block_present( ...
 end
 ```
 
+Add this exact local helper to `test_lqi_simulink_model.m`:
+
+```matlab
+function present = is_simulink_block_present(model_name, block_name)
+present = getSimulinkBlockHandle(model_name + "/" + block_name) > 0;
+end
+```
+
 - [ ] **Step 2: Run the LQI model test and verify failure**
 
 ```powershell
@@ -371,6 +379,30 @@ verifyTrue(test_case, all(table_out.accepted));
 end
 ```
 
+Add these exact local fixtures to `test_simulink_equivalence.m`:
+
+```matlab
+function result = make_small_common_result(offset)
+result = struct();
+result.time = [0; 0.001];
+result.state = zeros(2,4);
+result.state(:,1) = offset;
+result.state(:,3) = offset;
+result.u = offset*ones(2,1);
+end
+
+function [vectors, config] = starter_vectors_for_test()
+config = experiment_config("quick");
+vectors = struct();
+vectors.ATTITUDE_PID = log10([1.9,0.2,0.18]);
+vectors.CASCADE_PID = log10([0.241,0.000396,0.193,9.255,1.011]);
+vectors.FUZZY_PID = [log10([0.241,0.000396,0.193, ...
+    9.255,0.05,1.011]),0.2,0.2,0.2];
+vectors.LQR = log10([10,1,200,10,0.1]);
+vectors.LQI = log10([10,1,200,10,100,0.1]);
+end
+```
+
 - [ ] **Step 2: Run equivalence tests and verify failure**
 
 ```powershell
@@ -502,6 +534,47 @@ verifyTrue(test_case, any(endsWith(paths, "F6_normalized_radar.pdf")));
 end
 ```
 
+Add this exact local fixture to `test_paper_figures.m`:
+
+```matlab
+function [raw, monte_carlo] = synthetic_figure_inputs()
+controllers = ["ATTITUDE_PID","CASCADE_PID","FUZZY_PID","LQR","LQI"];
+scenarios = ["S2_position_step_0p75m", ...
+    "S2_saturation_stress", "S3_positive_impulse"];
+raw = struct();
+time = (0:0.1:2).';
+for controller = controllers
+    for scenario = scenarios
+        result = struct();
+        result.time = time;
+        result.state = [0.5*(1-exp(-time)), zeros(size(time)), ...
+            deg2rad(2)*exp(-time), zeros(size(time))];
+        result.position_reference = 0.5*ones(size(time));
+        result.u_raw = 0.8*sin(time);
+        result.u = min(max(result.u_raw,-1),1);
+        result.saturated = abs(result.u_raw) > 1;
+        key = matlab.lang.makeValidName(controller + "__" + scenario);
+        raw.(key) = result;
+    end
+end
+records = repmat(struct("controller","", "success",true, ...
+    "position_itae",0, "theta_rms_deg",0, "control_energy",0, ...
+    "saturation_ratio",0), numel(controllers)*3, 1);
+index = 0;
+for controller_index = 1:numel(controllers)
+    for repeat = 1:3
+        index = index + 1;
+        records(index).controller = controllers(controller_index);
+        records(index).position_itae = controller_index + 0.1*repeat;
+        records(index).theta_rms_deg = 0.2*controller_index;
+        records(index).control_energy = 0.5*controller_index;
+        records(index).saturation_ratio = 0.01*repeat;
+    end
+end
+monte_carlo = struct2table(records);
+end
+```
+
 - [ ] **Step 2: Run figure tests and verify failure**
 
 ```powershell
@@ -542,6 +615,8 @@ git commit -m "feat: add five-controller paper figures"
 
 **Files:**
 - Create: `reporting/save_raw_simulation.m`
+- Create: `reporting/scenario_to_record.m`
+- Create: `reporting/write_json_file.m`
 - Create: `reporting/write_results_tables.m`
 - Create: `reporting/build_run_manifest.m`
 - Create: `workflows/run_control_study_workflow.m`
@@ -584,6 +659,31 @@ verifyTrue(test_case, isfolder(summary.output_root));
 end
 ```
 
+Add these exact local fixtures to `test_control_study_outputs.m`:
+
+```matlab
+function [data, raw, vectors, validation] = synthetic_reporting_inputs()
+data = table("CASCADE_PID", "S2_position_step_0p75m", true, ...
+    0.2, 1.0, 0.5, 0.01, 'VariableNames', ...
+    {'controller','scenario','success','theta_rms_deg', ...
+    'position_itae','control_energy','saturation_ratio'});
+raw = struct();
+vectors = starter_vectors_for_test();
+validation = table("CASCADE_PID", true, 'VariableNames', ...
+    {'controller','accepted'});
+end
+
+function vectors = starter_vectors_for_test()
+vectors = struct();
+vectors.ATTITUDE_PID = log10([1.9,0.2,0.18]);
+vectors.CASCADE_PID = log10([0.241,0.000396,0.193,9.255,1.011]);
+vectors.FUZZY_PID = [log10([0.241,0.000396,0.193, ...
+    9.255,0.05,1.011]),0.2,0.2,0.2];
+vectors.LQR = log10([10,1,200,10,0.1]);
+vectors.LQI = log10([10,1,200,10,100,0.1]);
+end
+```
+
 - [ ] **Step 2: Run output tests and verify failure**
 
 ```powershell
@@ -594,7 +694,17 @@ Expected: failure because reporters and the root entry point are undefined.
 
 - [ ] **Step 3: Implement raw, table, manifest, workflow, and wrapper functions**
 
-`save_raw_simulation` saves one result to a sanitized `CONTROLLER__SCENARIO.mat` path and returns its relative index row. `write_results_tables` uses `writetable` for deterministic, Monte Carlo, descriptive, omnibus, pairwise, complexity, and equivalence CSV files, and writes each table to a named sheet in `statistics.xlsx`.
+`save_raw_simulation` saves one result to a sanitized `CONTROLLER__SCENARIO.mat` path and returns its relative index row. `scenario_to_record` removes the three function-handle fields and preserves every numeric scenario metadata field. `write_json_file` opens the exact target with UTF-8 encoding, writes `jsonencode(data,"PrettyPrint",true)`, verifies the byte count, and closes through cleanup.
+
+`write_results_tables` creates these exact products: tuning runs in MAT and CSV; frozen controller vectors in JSON; training and held-out scenario records in JSON; deterministic metrics, controller parameters, raw index, and complexity in CSV; Monte Carlo metrics in CSV; equivalence summary in CSV; descriptive, omnibus, and pairwise statistics in CSV; and all tabular results in named `statistics.xlsx` sheets. It uses `writetable` and returns every absolute path.
+
+The workflow creates these directories before writing:
+
+```matlab
+output_root = fullfile(project_root, "results", "control_study_" + mode);
+directory_names = ["tuning","deterministic","monte_carlo", ...
+    "simulink_validation","figures"];
+```
 
 `build_run_manifest` records UTC creation time, `version`, `computer`, toolbox versions, Git commit, mode, seed, controller names, frozen vectors, and SHA-256 hashes of the three configuration files. Compute a hash with Java `MessageDigest` over `uint8(fileread(path))` and encode two-digit lowercase hexadecimal bytes.
 
@@ -635,7 +745,7 @@ Expected: all tests pass, code analysis has no issues, Quick training and evalua
 Update README with environment requirements, Quick and Full commands, five controller definitions, training/test isolation, output tree, control-energy wording, and software-simulation limitation. Map every research requirement to exact code files in `docs/IMPLEMENTATION_MAPPING.md`.
 
 ```powershell
-git add .gitignore README.md docs/IMPLEMENTATION_MAPPING.md reporting workflows run_control_study.m tests/test_control_study_outputs.m tests/test_root_entry_points.m results/control_study_quick simulink_models
+git add .gitignore README.md docs/IMPLEMENTATION_MAPPING.md reporting workflows run_control_study.m tests/test_control_study_outputs.m tests/test_root_entry_points.m results/control_study_quick/tuning/frozen_controller_parameters.json results/control_study_quick/deterministic/summary_metrics.csv results/control_study_quick/deterministic/controller_parameters.csv results/control_study_quick/deterministic/controller_complexity.csv results/control_study_quick/monte_carlo/monte_carlo_metrics.csv results/control_study_quick/simulink_validation/equivalence_summary.csv results/control_study_quick/figures results/control_study_quick/statistics.xlsx results/control_study_quick/statistics_descriptive.csv results/control_study_quick/statistics_omnibus.csv results/control_study_quick/statistics_pairwise.csv results/control_study_quick/training_scenarios.json results/control_study_quick/heldout_scenarios.json results/control_study_quick/run_manifest.json simulink_models
 git commit -m "feat: deliver unified five-controller study"
 git push origin main
 git status --short
