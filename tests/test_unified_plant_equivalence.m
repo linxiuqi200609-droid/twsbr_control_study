@@ -44,6 +44,8 @@ config = experiment_config("quick");
 vector = log10([1.9, 0.2, 0.18]);
 scenario = make_scenario("noisy", zeros(4, 1), 0.02, ...
     [0; 0; 0.002; 0.01]);
+original_rng = rng;
+rng_cleanup = onCleanup(@() rng(original_rng));
 
 rng(2468, "twister");
 expected_global_draw = rand(1, 5);
@@ -60,6 +62,21 @@ verifyEqual(test_case, actual_global_draw, expected_global_draw, "AbsTol", 0);
 verifyEqual(test_case, second.state, first.state, "AbsTol", 0);
 verifyEqual(test_case, second.u_raw, first.u_raw, "AbsTol", 0);
 verifyGreaterThan(test_case, max(abs(different.u_raw - first.u_raw)), 0);
+end
+
+function test_seed_domain_rejects_noncanonical_values(test_case)
+plant = twsbr_params();
+config = experiment_config("quick");
+vector = log10([0.1, 1e-4, 0.01]);
+scenario = make_scenario("seed_domain", zeros(4, 1), 0.01, ...
+    zeros(4, 1));
+
+invalid_seeds = {-1, 0.5, 2^32};
+for index = 1:numel(invalid_seeds)
+    verifyError(test_case, @() simulate_control_system("ATTITUDE_PID", ...
+        vector, plant, config, scenario, invalid_seeds{index}), ...
+        "twsbr:simulation:invalid_seed");
+end
 end
 
 function test_zero_noise_is_exactly_seed_independent(test_case)

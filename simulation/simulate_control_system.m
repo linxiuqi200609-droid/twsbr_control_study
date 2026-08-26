@@ -181,9 +181,11 @@ function validate_inputs(plant_params, config, scenario, seed)
 validate_plant_params(plant_params);
 validate_config(config);
 validate_scenario(scenario);
-if ~isnumeric(seed) || ~isreal(seed) || ~isscalar(seed) || ~isfinite(seed)
+if ~isnumeric(seed) || ~isreal(seed) || ~isscalar(seed) || ...
+        ~isfinite(seed) || seed < 0 || seed > 2^32 - 1 || ...
+        seed ~= floor(seed)
     error("twsbr:simulation:invalid_seed", ...
-        "Seed must be a finite real numeric scalar.");
+        "Seed must be an integer from 0 through 2^32-1.");
 end
 end
 
