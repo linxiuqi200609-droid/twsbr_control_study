@@ -1,7 +1,8 @@
 function paths = setup_project()
 project_root = string(fileparts(mfilename("fullpath")));
 directory_names = ["models"; "controllers"; "simulation"; "scenarios"; ...
-    "builders"; "visualization"; "workflows"];
+    "builders"; "visualization"; "workflows"; "config"; ...
+    "optimization"; "experiments"; "evaluation"; "reporting"];
 code_directories = fullfile(project_root, directory_names);
 existing = isfolder(code_directories);
 for index = 1:numel(code_directories)

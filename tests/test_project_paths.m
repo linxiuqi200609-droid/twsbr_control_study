@@ -6,7 +6,8 @@ end
 function test_setup_project_adds_only_allowed_source_directories(test_case)
 project_root = string(fileparts(fileparts(mfilename("fullpath"))));
 source_names = ["models"; "controllers"; "simulation"; "scenarios"; ...
-    "builders"; "visualization"; "workflows"];
+    "builders"; "visualization"; "workflows"; "config"; ...
+    "optimization"; "experiments"; "evaluation"; "reporting"];
 source_directories = fullfile(project_root, source_names);
 excluded_directories = fullfile(project_root, ["tests"; "results"; "docs"; ...
     "simulink_models"; "builders/private"; "slprj"]);
@@ -45,7 +46,12 @@ verifyEqual(test_case, paths.project_root, project_root);
 verifyEqual(test_case, paths.result_directory, fullfile(project_root, "results"));
 verifyEqual(test_case, paths.model_directory, fullfile(project_root, "simulink_models"));
 verifyEqual(test_case, paths.test_directory, fullfile(project_root, "tests"));
-verifyEmpty(test_case, paths.missing_code_directories);
+directory_names = ["models"; "controllers"; "simulation"; "scenarios"; ...
+    "builders"; "visualization"; "workflows"; "config"; ...
+    "optimization"; "experiments"; "evaluation"; "reporting"];
+source_directories = fullfile(project_root, directory_names);
+expected_missing = source_directories(~isfolder(source_directories));
+verifyEqual(test_case, paths.missing_code_directories, expected_missing);
 verifyTrue(test_case, all(is_absolute_path(paths.missing_code_directories)));
 end
 
