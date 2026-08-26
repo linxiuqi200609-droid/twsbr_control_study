@@ -54,6 +54,51 @@ verify_restored_artifacts(test_case, artifact_paths, ...
     artifact_was_present, original_artifact_bytes);
 end
 
+function test_restore_failure_preserves_backup_for_manual_recovery(test_case)
+fixture_root = string(tempname(tempdir));
+mkdir(fixture_root);
+fixture_cleanup = onCleanup(@() remove_temp_directory(fixture_root));
+external_directory = fullfile(fixture_root, "external");
+backup_directory = fullfile(fixture_root, "backup");
+mkdir(external_directory);
+mkdir(backup_directory);
+
+original_bytes = uint8([0; 1; 2; 255]);
+backup_path = fullfile(backup_directory, "original.bin");
+write_file_bytes(backup_path, original_bytes);
+blocking_parent = fullfile(fixture_root, "blocking_parent");
+write_file_bytes(blocking_parent, uint8(7));
+artifact_path = fullfile(blocking_parent, "original.bin");
+
+caught_exception = [];
+try
+    restore_test_state(path, string(pwd), external_directory, ...
+        artifact_path, backup_path, true, backup_directory);
+catch exception
+    caught_exception = exception;
+end
+
+assertNotEmpty(test_case, caught_exception);
+verifyEqual(test_case, string(caught_exception.identifier), ...
+    "twsbr:test:artifact_restore_recovery_required");
+verifyTrue(test_case, contains(string(caught_exception.message), ...
+    backup_directory));
+verifyEqual(test_case, numel(caught_exception.cause), 1);
+if ~isempty(caught_exception.cause)
+    verifyEqual(test_case, string(caught_exception.cause{1}.identifier), ...
+        "twsbr:test:artifact_restore_failed");
+end
+verifyTrue(test_case, isfolder(backup_directory));
+backup_exists = isfile(backup_path);
+verifyTrue(test_case, backup_exists);
+if backup_exists
+    verifyEqual(test_case, read_file_bytes(backup_path), original_bytes);
+end
+
+clear fixture_cleanup
+verifyFalse(test_case, isfolder(fixture_root));
+end
+
 function verify_summary_artifacts(test_case, summary, project_root, ...
         model_name, results_name, figure_name)
 expected_model_path = fullfile(project_root, "simulink_models", model_name);
@@ -125,6 +170,7 @@ function restore_test_state(original_path, original_directory, ...
         external_directory, artifact_paths, backup_paths, ...
         artifact_was_present, backup_directory)
 first_exception = [];
+artifact_restore_exception = [];
 try
     path(original_path);
 catch exception
@@ -144,11 +190,20 @@ for index = 1:numel(artifact_paths)
                 error("twsbr:test:artifact_restore_failed", ...
                     "Could not restore %s: %s", artifact_paths(index), message);
             end
+            restored_bytes = read_file_bytes(artifact_paths(index));
+            backup_bytes = read_file_bytes(backup_paths(index));
+            if ~isequal(restored_bytes, backup_bytes)
+                error("twsbr:test:artifact_restore_verification_failed", ...
+                    "Restored artifact does not match backup: %s", ...
+                    artifact_paths(index));
+            end
         elseif isfile(artifact_paths(index))
             delete(artifact_paths(index));
         end
     catch exception
         first_exception = retain_first_exception(first_exception, exception);
+        artifact_restore_exception = retain_first_exception( ...
+            artifact_restore_exception, exception);
     end
 end
 try
@@ -157,6 +212,15 @@ try
     end
 catch exception
     first_exception = retain_first_exception(first_exception, exception);
+end
+if ~isempty(artifact_restore_exception)
+    recovery_exception = MException( ...
+        'twsbr:test:artifact_restore_recovery_required', ...
+        'Artifact restoration failed. Backup retained for manual recovery: %s', ...
+        char(backup_directory));
+    recovery_exception = addCause(recovery_exception, ...
+        artifact_restore_exception);
+    throw(recovery_exception);
 end
 try
     if isfolder(backup_directory)
@@ -198,4 +262,25 @@ end
 file_cleanup = onCleanup(@() fclose(file_id));
 bytes = fread(file_id, Inf, "*uint8");
 clear file_cleanup
+end
+
+function write_file_bytes(file_path, bytes)
+file_id = fopen(file_path, "wb");
+if file_id == -1
+    error("twsbr:test:artifact_write_failed", ...
+        "Could not write test artifact: %s", file_path);
+end
+file_cleanup = onCleanup(@() fclose(file_id));
+written_count = fwrite(file_id, bytes, "uint8");
+if written_count ~= numel(bytes)
+    error("twsbr:test:artifact_write_failed", ...
+        "Could not write all test artifact bytes: %s", file_path);
+end
+clear file_cleanup
+end
+
+function remove_temp_directory(directory_path)
+if isfolder(directory_path)
+    rmdir(directory_path, "s");
+end
 end
