@@ -118,6 +118,11 @@ for index = 1:sample_count
             success = false;
             failure_reason = "nonfinite_state";
             break
+        elseif strcmp(exception.identifier, ...
+                "twsbr:dynamics:singular_mass_matrix")
+            success = false;
+            failure_reason = "singular_mass_matrix";
+            break
         end
         rethrow(exception);
     end

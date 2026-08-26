@@ -159,6 +159,28 @@ verifyEmpty(test_case, result.diagnostics);
 verifyEqual(test_case, result.survived_time, 0);
 end
 
+function test_near_singular_plant_returns_truncated_failure(test_case)
+plant = twsbr_params(struct( ...
+    "body_mass", 1e-6, ...
+    "wheel_mass_equiv", 1e-6, ...
+    "com_length", 1e-6, ...
+    "body_inertia", 1e-13));
+config = experiment_config("quick");
+scenario = make_scenario("near_singular_plant", zeros(4, 1), ...
+    0.01, zeros(4, 1));
+vector = log10([0.1, 1e-4, 0.01]);
+
+result = simulate_control_system("ATTITUDE_PID", vector, plant, ...
+    config, scenario, 0);
+
+verifyFalse(test_case, result.success);
+verifyEqual(test_case, result.failure_reason, "singular_mass_matrix");
+verifyEqual(test_case, result.time, 0);
+verifyEqual(test_case, result.state, scenario.initial_state.');
+verifyEqual(test_case, result.survived_time, 0);
+verifyEqual(test_case, numel(result.diagnostics), 1);
+end
+
 function test_inputs_are_validated_before_simulation(test_case)
 plant = twsbr_params();
 config = experiment_config("quick");

@@ -10,8 +10,15 @@ original_path = path;
 original_directory = string(pwd);
 external_directory = string(tempname(tempdir));
 mkdir(external_directory);
+artifact_paths = known_artifact_paths(project_root);
+[backup_directory, backup_paths, artifact_was_present, ...
+    original_artifact_bytes] = backup_artifacts(artifact_paths);
 cleanup = onCleanup(@() restore_test_state( ...
-    original_path, original_directory, external_directory));
+    original_path, original_directory, external_directory, ...
+    artifact_paths, backup_paths, artifact_was_present, backup_directory));
+remove_exact_artifacts(artifact_paths);
+verifyFalse(test_case, any(isfile(artifact_paths)), ...
+    "Tracked artifacts must be absent before the workflows run.");
 
 restoredefaultpath;
 addpath(project_root, "-begin");
@@ -42,6 +49,9 @@ clear cleanup
 verifyEqual(test_case, string(pwd), original_directory);
 verifyEqual(test_case, path, original_path);
 verifyFalse(test_case, isfolder(external_directory));
+verifyFalse(test_case, isfolder(backup_directory));
+verify_restored_artifacts(test_case, artifact_paths, ...
+    artifact_was_present, original_artifact_bytes);
 end
 
 function verify_summary_artifacts(test_case, summary, project_root, ...
@@ -58,10 +68,134 @@ verifyTrue(test_case, isfile(summary.results_path));
 verifyTrue(test_case, isfile(summary.figure_path));
 end
 
-function restore_test_state(original_path, original_directory, external_directory)
-path(original_path);
-cd(original_directory);
-if isfolder(external_directory)
-    rmdir(external_directory, "s");
+function artifact_paths = known_artifact_paths(project_root)
+artifact_paths = [ ...
+    fullfile(project_root, "results", "open_loop_results.mat"); ...
+    fullfile(project_root, "results", "open_loop_response.png"); ...
+    fullfile(project_root, "results", "attitude_pid_results.mat"); ...
+    fullfile(project_root, "results", "attitude_pid_response.png"); ...
+    fullfile(project_root, "results", "cascade_pid_results.mat"); ...
+    fullfile(project_root, "results", "cascade_pid_response.png"); ...
+    fullfile(project_root, "simulink_models", "twsbr_plant.slx"); ...
+    fullfile(project_root, "simulink_models", "twsbr_attitude_pid.slx"); ...
+    fullfile(project_root, "simulink_models", "twsbr_cascade_pid.slx")];
 end
+
+function [backup_directory, backup_paths, artifact_was_present, ...
+        original_artifact_bytes] = backup_artifacts(artifact_paths)
+backup_directory = string(tempname(tempdir));
+mkdir(backup_directory);
+backup_paths = strings(size(artifact_paths));
+artifact_was_present = isfile(artifact_paths);
+original_artifact_bytes = cell(size(artifact_paths));
+
+try
+    for index = 1:numel(artifact_paths)
+        [~, file_name, extension] = fileparts(artifact_paths(index));
+        backup_paths(index) = fullfile(backup_directory, ...
+            string(index) + "_" + string(file_name) + string(extension));
+        if artifact_was_present(index)
+            original_artifact_bytes{index} = read_file_bytes( ...
+                artifact_paths(index));
+            [copied, message] = copyfile(artifact_paths(index), ...
+                backup_paths(index));
+            if ~copied
+                error("twsbr:test:artifact_backup_failed", ...
+                    "Could not back up %s: %s", artifact_paths(index), message);
+            end
+        end
+    end
+catch exception
+    if isfolder(backup_directory)
+        rmdir(backup_directory, "s");
+    end
+    rethrow(exception);
+end
+end
+
+function remove_exact_artifacts(artifact_paths)
+for index = 1:numel(artifact_paths)
+    if isfile(artifact_paths(index))
+        delete(artifact_paths(index));
+    end
+end
+end
+
+function restore_test_state(original_path, original_directory, ...
+        external_directory, artifact_paths, backup_paths, ...
+        artifact_was_present, backup_directory)
+first_exception = [];
+try
+    path(original_path);
+catch exception
+    first_exception = retain_first_exception(first_exception, exception);
+end
+try
+    cd(original_directory);
+catch exception
+    first_exception = retain_first_exception(first_exception, exception);
+end
+for index = 1:numel(artifact_paths)
+    try
+        if artifact_was_present(index)
+            [copied, message] = copyfile(backup_paths(index), ...
+                artifact_paths(index), "f");
+            if ~copied
+                error("twsbr:test:artifact_restore_failed", ...
+                    "Could not restore %s: %s", artifact_paths(index), message);
+            end
+        elseif isfile(artifact_paths(index))
+            delete(artifact_paths(index));
+        end
+    catch exception
+        first_exception = retain_first_exception(first_exception, exception);
+    end
+end
+try
+    if isfolder(external_directory)
+        rmdir(external_directory, "s");
+    end
+catch exception
+    first_exception = retain_first_exception(first_exception, exception);
+end
+try
+    if isfolder(backup_directory)
+        rmdir(backup_directory, "s");
+    end
+catch exception
+    first_exception = retain_first_exception(first_exception, exception);
+end
+if ~isempty(first_exception)
+    throw(first_exception);
+end
+end
+
+function first_exception = retain_first_exception(first_exception, exception)
+if isempty(first_exception)
+    first_exception = exception;
+end
+end
+
+function verify_restored_artifacts(test_case, artifact_paths, ...
+        artifact_was_present, original_artifact_bytes)
+for index = 1:numel(artifact_paths)
+    if artifact_was_present(index)
+        verifyTrue(test_case, isfile(artifact_paths(index)));
+        verifyEqual(test_case, read_file_bytes(artifact_paths(index)), ...
+            original_artifact_bytes{index});
+    else
+        verifyFalse(test_case, isfile(artifact_paths(index)));
+    end
+end
+end
+
+function bytes = read_file_bytes(file_path)
+file_id = fopen(file_path, "rb");
+if file_id == -1
+    error("twsbr:test:artifact_read_failed", ...
+        "Could not read artifact: %s", file_path);
+end
+file_cleanup = onCleanup(@() fclose(file_id));
+bytes = fread(file_id, Inf, "*uint8");
+clear file_cleanup
 end

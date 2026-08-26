@@ -3,11 +3,11 @@ function controller = controller_after_actuation(controller, u_raw, applied_u)
 
 validate_finite_scalar(u_raw, "Raw control");
 validate_finite_scalar(applied_u, "Applied control");
-validate_finite_scalar(controller.pending_legacy_u, "Pending legacy control");
 if isempty(controller.pending_state)
     error("twsbr:controller:invalid_state", ...
         "Controller has no pending state to commit.");
 end
+validate_finite_scalar(controller.pending_legacy_u, "Pending legacy control");
 if abs(applied_u - controller.pending_legacy_u) > 1e-12
     error("twsbr:controller:legacy_saturation_mismatch", ...
         "Common and legacy actuator saturation differ.");

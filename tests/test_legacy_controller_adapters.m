@@ -83,6 +83,21 @@ verifyError(test_case, @() controller_step(controller, 0.0, [0; 0; NaN; 0], 0.0)
     "twsbr:controller:invalid_state");
 end
 
+function test_controller_step_rejects_invalid_reference_with_common_identifier( ...
+        test_case)
+controllers = {make_attitude_controller(), make_cascade_controller()};
+invalid_references = {NaN, Inf, 1i, [0, 1], "invalid"};
+
+for controller_index = 1:numel(controllers)
+    for reference_index = 1:numel(invalid_references)
+        verifyError(test_case, @() controller_step( ...
+            controllers{controller_index}, 0.0, zeros(4, 1), ...
+            invalid_references{reference_index}), ...
+            "twsbr:controller:invalid_input");
+    end
+end
+end
+
 function test_controller_step_rejects_unsupported_name(test_case)
 controller = make_attitude_controller();
 controller.name = "UNKNOWN";
@@ -113,9 +128,22 @@ verifyError(test_case, @() controller_after_actuation( ...
     controller, control.u_raw, Inf), "twsbr:controller:invalid_input");
 end
 
+function test_after_actuation_immediately_after_reset_rejects_lifecycle_state( ...
+        test_case)
+controller = make_attitude_controller();
+
+verifyError(test_case, @() controller_after_actuation(controller, 0.0, 0.0), ...
+    "twsbr:controller:invalid_state");
+end
+
 function controller = make_attitude_controller()
 controller = reset_controller(create_controller("ATTITUDE_PID", ...
     log10([1.9, 0.2, 0.18]), twsbr_params(), experiment_config("quick")));
+end
+
+function controller = make_cascade_controller()
+controller = reset_controller(create_controller("CASCADE_PID", ...
+    cascade_vector(), twsbr_params(), experiment_config("quick")));
 end
 
 function vector = cascade_vector()
