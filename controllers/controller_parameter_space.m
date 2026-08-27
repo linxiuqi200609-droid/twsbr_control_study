@@ -15,6 +15,11 @@ switch name
         parameter_names = ["kp_x"; "ki_x"; "kd_x"; "kp_theta"; "kd_theta"];
         lower_bounds = [-2.0, -4.0, -2.0, 0.0, -1.5];
         upper_bounds = [0.5, 0.0, 1.0, 2.0, 1.5];
+    case "LQR"
+        parameter_names = ["q_x"; "q_x_dot"; "q_theta"; ...
+            "q_theta_dot"; "r"];
+        lower_bounds = [-2.0, -2.0, -2.0, -2.0, -3.0];
+        upper_bounds = [4.0, 4.0, 5.0, 4.0, 2.0];
     otherwise
         unsupported_name(controller_name);
 end

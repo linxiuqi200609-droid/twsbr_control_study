@@ -19,10 +19,45 @@ switch space.name
             "plant_step", config.plant_step, ...
             "theta_reference_limit", config.theta_reference_limit), ...
             plant_params);
+    case "LQR"
+        params = decode_lqr(gains, plant_params, config);
     otherwise
         error("twsbr:controller:unsupported_name", ...
             "Controller is not implemented in this phase: %s", controller_name);
 end
+end
+
+function params = decode_lqr(weights, plant_params, config)
+[ad, bd] = twsbr_discrete_model(plant_params, config.sample_time);
+q_diag = weights(1:4);
+r_value = weights(5);
+
+try
+    [gain, ~, poles] = dlqr(ad, bd, diag(q_diag), r_value);
+catch cause
+    if strcmp(cause.identifier, "Control:design:lqr2")
+        exception = MException("twsbr:lqr:nonstabilizing_solution", ...
+            "The LQR candidate does not have a stabilizing discrete solution.");
+        exception = addCause(exception, cause);
+        throw(exception);
+    end
+    rethrow(cause);
+end
+
+if ~isnumeric(gain) || ~isreal(gain) || ~isequal(size(gain), [1, 4]) || ...
+        any(~isfinite(gain), "all") || ~isnumeric(poles) || ...
+        numel(poles) ~= 4 || any(~isfinite(poles), "all") || ...
+        any(abs(poles) >= 1)
+    error("twsbr:lqr:nonstabilizing_solution", ...
+        "The LQR candidate does not have a stabilizing discrete solution.");
+end
+
+params = struct( ...
+    "q_diag", q_diag, ...
+    "r_value", r_value, ...
+    "gain", gain, ...
+    "closed_loop_eigenvalues", poles, ...
+    "sample_time", config.sample_time);
 end
 
 function validate_vector(vector, space)

@@ -1,0 +1,35 @@
+function control = lqr_step(plant_state, x_reference, params)
+%LQR_STEP Calculate one unsaturated discrete full-state LQR command.
+
+if ~isnumeric(plant_state) || ~isreal(plant_state) || ...
+        ~isvector(plant_state) || numel(plant_state) ~= 4 || ...
+        any(~isfinite(plant_state(:)))
+    invalid_input("plant_state must be a finite real four-state vector.");
+end
+if ~isnumeric(x_reference) || ~isreal(x_reference) || ...
+        ~isscalar(x_reference) || ~isfinite(x_reference)
+    invalid_input("x_reference must be a finite real numeric scalar.");
+end
+if ~isstruct(params) || ~isscalar(params) || ...
+        ~isfield(params, "gain") || ~isnumeric(params.gain) || ...
+        ~isreal(params.gain) || ~isequal(size(params.gain), [1, 4]) || ...
+        any(~isfinite(params.gain), "all")
+    invalid_input("params.gain must be a finite real 1-by-4 vector.");
+end
+
+state_error = plant_state(:) - [x_reference; 0; 0; 0];
+u_raw = -params.gain * state_error;
+if ~isreal(u_raw) || ~isscalar(u_raw) || ~isfinite(u_raw)
+    invalid_input("The LQR command must be a finite real numeric scalar.");
+end
+
+control = struct( ...
+    "u_raw", u_raw, ...
+    "theta_reference", 0.0, ...
+    "state_error", state_error, ...
+    "diagnostics", struct("state_error_norm", norm(state_error)));
+end
+
+function invalid_input(message)
+error("twsbr:lqr:invalid_input", "%s", message);
+end
