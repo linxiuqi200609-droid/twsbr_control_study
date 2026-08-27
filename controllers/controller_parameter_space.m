@@ -1,5 +1,5 @@
 function space = controller_parameter_space(controller_name)
-%CONTROLLER_PARAMETER_SPACE Return frozen log10 gain bounds by controller.
+%CONTROLLER_PARAMETER_SPACE Return frozen optimizer bounds by controller.
 
 name = upper(string(controller_name));
 if ~isscalar(name)
@@ -15,6 +15,14 @@ switch name
         parameter_names = ["kp_x"; "ki_x"; "kd_x"; "kp_theta"; "kd_theta"];
         lower_bounds = [-2.0, -4.0, -2.0, 0.0, -1.5];
         upper_bounds = [0.5, 0.0, 1.0, 2.0, 1.5];
+    case "FUZZY_PID"
+        parameter_names = ["kp_x"; "ki_x"; "kd_x"; ...
+            "kp_theta_base"; "ki_theta_base"; "kd_theta_base"; ...
+            "alpha_p"; "alpha_i"; "alpha_d"];
+        lower_bounds = [-2.0, -4.0, -2.0, 0.0, -4.0, -1.5, ...
+            0.0, 0.0, 0.0];
+        upper_bounds = [0.5, 0.0, 1.0, 2.0, 1.0, 1.5, ...
+            1.5, 1.5, 1.5];
     case "LQR"
         parameter_names = ["q_x"; "q_x_dot"; "q_theta"; ...
             "q_theta_dot"; "r"];

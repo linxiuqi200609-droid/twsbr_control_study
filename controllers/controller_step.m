@@ -17,6 +17,10 @@ switch controller.name
     case "CASCADE_PID"
         [control, controller] = adapt_cascade_pid_controller( ...
             controller, measured_state, x_reference);
+    case "FUZZY_PID"
+        [control, controller.pending_state] = fuzzy_pid_step( ...
+            controller.state, measured_state, x_reference, controller.params);
+        controller.pending_legacy_u = [];
     case "LQR"
         control = lqr_step(measured_state, x_reference, controller.params);
         controller.pending_state = struct();

@@ -6,6 +6,9 @@ switch controller.name
         controller.state = struct("integral_error", 0.0);
     case "CASCADE_PID"
         controller.state = struct("position_integral", 0.0);
+    case "FUZZY_PID"
+        controller.state = struct( ...
+            "position_integral", 0.0, "theta_integral", 0.0);
     case "LQR"
         controller.state = struct();
     case "LQI"
