@@ -21,6 +21,10 @@ switch controller.name
         control = lqr_step(measured_state, x_reference, controller.params);
         controller.pending_state = struct();
         controller.pending_legacy_u = [];
+    case "LQI"
+        [control, controller.pending_state] = lqi_step( ...
+            controller.state, measured_state, x_reference, controller.params);
+        controller.pending_legacy_u = [];
     otherwise
         error("twsbr:controller:unsupported_name", ...
             "Controller is not implemented in this phase: %s", controller.name);

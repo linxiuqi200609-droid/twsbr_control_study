@@ -8,6 +8,8 @@ switch controller.name
         controller.state = struct("position_integral", 0.0);
     case "LQR"
         controller.state = struct();
+    case "LQI"
+        controller.state = struct("position_integral", 0.0);
     otherwise
         error("twsbr:controller:unsupported_name", ...
             "Controller is not implemented in this phase: %s", controller.name);

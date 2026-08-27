@@ -3,7 +3,7 @@ function controller = create_controller(controller_name, vector, plant_params, c
 
 name = upper(string(controller_name));
 if ~isscalar(name) || ...
-        ~ismember(name, ["ATTITUDE_PID", "CASCADE_PID", "LQR"])
+        ~ismember(name, ["ATTITUDE_PID", "CASCADE_PID", "LQR", "LQI"])
     error("twsbr:controller:unsupported_name", ...
         "Controller is not implemented in this phase: %s", string(controller_name));
 end

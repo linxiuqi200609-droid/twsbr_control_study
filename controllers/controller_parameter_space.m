@@ -20,6 +20,11 @@ switch name
             "q_theta_dot"; "r"];
         lower_bounds = [-2.0, -2.0, -2.0, -2.0, -3.0];
         upper_bounds = [4.0, 4.0, 5.0, 4.0, 2.0];
+    case "LQI"
+        parameter_names = ["q_x"; "q_x_dot"; "q_theta"; ...
+            "q_theta_dot"; "q_integral"; "r"];
+        lower_bounds = [-2.0, -2.0, -2.0, -2.0, -2.0, -3.0];
+        upper_bounds = [4.0, 4.0, 5.0, 4.0, 5.0, 2.0];
     otherwise
         unsupported_name(controller_name);
 end
