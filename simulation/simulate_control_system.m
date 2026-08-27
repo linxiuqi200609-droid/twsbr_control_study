@@ -68,7 +68,7 @@ for index = 1:sample_count
                 current_time, measured_state, reference);
         catch exception
             if strcmp(exception.identifier, ...
-                    "twsbr:cascade_pid:nonfinite_output")
+                    "twsbr:controller:nonfinite_output")
                 success = false;
                 failure_reason = "nonfinite_control";
                 break
