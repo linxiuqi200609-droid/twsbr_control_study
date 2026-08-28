@@ -1,6 +1,10 @@
 function tests = test_monte_carlo_pairing
 %TEST_MONTE_CARLO_PAIRING Tests for deterministic paired MC generation.
-tests = functiontests(localfunctions);
+local_functions = localfunctions;
+function_names = string(cellfun(@func2str, local_functions, ...
+    "UniformOutput", false));
+tests = functiontests(local_functions(~endsWith( ...
+    function_names, "starter_vectors_for_test")));
 end
 
 function setupOnce(test_case)
@@ -207,6 +211,25 @@ for index = 1:numel(invalid_nominals)
 end
 end
 
+function test_monte_carlo_rows_share_conditions_by_run_index(test_case)
+[vectors, config] = starter_vectors_for_test();
+config.monte_carlo_runs = 2;
+
+table_out = run_monte_carlo(vectors, twsbr_params(), config, ...
+    monte_carlo_config("quick"), 20260);
+
+verifyEqual(test_case, height(table_out), 10);
+verifyEqual(test_case, table_out.controller, ...
+    repmat(config.controller_names, 2, 1));
+for run_index = 0:1
+    rows = table_out(table_out.run_index == run_index, :);
+    verifyEqual(test_case, height(rows), 5);
+    verifyEqual(test_case, numel(unique(rows.delta_body_mass)), 1);
+    verifyEqual(test_case, numel(unique(rows.force_amplitude)), 1);
+    verifyEqual(test_case, numel(unique(rows.measurement_noise_seed)), 1);
+end
+end
+
 function verify_scenarios_equal(test_case, actual, expected)
 verifyEqual(test_case, rmfield(actual, ...
     ["x_reference", "force_disturbance", "torque_disturbance"]), ...
@@ -220,4 +243,15 @@ verifyEqual(test_case, actual.force_disturbance(probe_times), ...
     expected.force_disturbance(probe_times));
 verifyEqual(test_case, actual.torque_disturbance(probe_times), ...
     expected.torque_disturbance(probe_times));
+end
+
+function [vectors, config] = starter_vectors_for_test()
+config = experiment_config("quick");
+vectors = struct();
+vectors.ATTITUDE_PID = log10([1.9,0.2,0.18]);
+vectors.CASCADE_PID = log10([0.241,0.000396,0.193,9.255,1.011]);
+vectors.FUZZY_PID = [log10([0.241,0.000396,0.193, ...
+    9.255,0.05,1.011]),0.2,0.2,0.2];
+vectors.LQR = log10([10,1,200,10,0.1]);
+vectors.LQI = log10([10,1,200,10,100,0.1]);
 end
