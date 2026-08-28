@@ -21,7 +21,7 @@ end
 [git_status, repository_root] = system(sprintf( ...
     'git -C "%s" rev-parse --show-toplevel', project_root));
 is_repository = git_status == 0 && strcmpi( ...
-    string(strtrim(repository_root)), string(project_root));
+    normalize_path(repository_root), normalize_path(project_root));
 if ~is_repository
     error("twsbr:environment:invalid_project_root", ...
         "project_root must identify this Git repository.");
@@ -72,7 +72,7 @@ if ~isfolder(results_directory)
     return
 end
 temporary_file = string(tempname(results_directory));
-cleanup = onCleanup(@() delete_if_present(temporary_file)); %#ok<NASGU>
+cleanup = onCleanup(@() delete_if_present(temporary_file));
 [file_id, message] = fopen(temporary_file, "w");
 if file_id < 0
     return
@@ -82,10 +82,16 @@ writable = isfile(temporary_file);
 if ~isempty(message)
     writable = false;
 end
+clear cleanup
 end
 
 function delete_if_present(file_path)
 if isfile(file_path)
     delete(file_path);
 end
+end
+
+function path_value = normalize_path(path_value)
+path_value = replace(string(strtrim(path_value)), "\", "/");
+path_value = regexprep(path_value, "/+$", "");
 end
