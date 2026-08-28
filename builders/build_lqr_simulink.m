@@ -6,13 +6,12 @@ if nargin < 1
 else
     plant_params = twsbr_params(plant_params);
 end
+config = experiment_config("quick");
 if nargin < 2
-    config = experiment_config("quick");
     params = decode_controller_vector("LQR", ...
         log10([10, 1, 200, 10, 0.1]), plant_params, config);
-else
-    params = validate_lqr_simulink_params(params);
 end
+params = validate_lqr_simulink_params(params, config);
 
 if isempty(ver("simulink"))
     error("twsbr:simulink:not_available", ...
@@ -25,10 +24,7 @@ model_directory = fullfile(project_root, "simulink_models");
 if ~isfolder(model_directory)
     mkdir(model_directory);
 end
-plant_model_path = fullfile(model_directory, "twsbr_plant.slx");
-if ~isfile(plant_model_path)
-    plant_model_path = build_twsbr_simulink(plant_params);
-end
+plant_model_path = build_twsbr_simulink(plant_params);
 
 model_name = "twsbr_lqr";
 model_path = fullfile(model_directory, model_name + ".slx");
@@ -43,7 +39,7 @@ model_path = create_lqr_simulink_model( ...
     plant_params, params, plant_model_path, model_path);
 end
 
-function params = validate_lqr_simulink_params(params)
+function params = validate_lqr_simulink_params(params, config)
 valid = isstruct(params) && isscalar(params) && ...
     isfield(params, "gain") && isfield(params, "sample_time");
 if valid
@@ -56,6 +52,14 @@ if ~valid
     error("twsbr:lqr:invalid_input", ...
         "LQR gain and sample time must be finite decoded parameters.");
 end
+if abs(params.sample_time - config.sample_time) > 1e-15 || ...
+        isfield(params, "plant_step") && ( ...
+        ~is_positive_finite_scalar(params.plant_step) || ...
+        abs(params.plant_step - config.plant_step) > 1e-15)
+    error("twsbr:lqr_simulation:invalid_timing", ...
+        "LQR simulation requires plant_step=0.001 and sample_time=0.01.");
+end
+params.plant_step = config.plant_step;
 end
 
 function valid = is_positive_finite_scalar(value)

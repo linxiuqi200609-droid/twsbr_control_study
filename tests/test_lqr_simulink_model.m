@@ -52,6 +52,9 @@ verifyEqual(test_case, str2double(get_param( ...
 verifyEqual(test_case, str2double(get_param( ...
     model_name + "/state_sampling", "SampleTime")), ...
     params.sample_time, "AbsTol", 1e-15);
+config = experiment_config("quick");
+verifyEqual(test_case, str2double(get_param(model_name, "MaxStep")), ...
+    config.plant_step, "AbsTol", 1e-15);
 
 verifyEqual(test_case, string(get_param( ...
     model_name + "/reference_state", "BlockType")), "Mux");
@@ -74,6 +77,34 @@ verifyEqual(test_case, source_block(plant_ports.Inport(1)), ...
 verifyEqual(test_case, string(get_param(plant_path, "BlockType")), "SubSystem");
 verifyEqual(test_case, string(get_param( ...
     plant_path + "/state_integrator", "BlockType")), "Integrator");
+end
+
+function test_builder_rejects_nonstandard_timing(test_case)
+[plant, params] = lqr_fixture();
+params.sample_time = 0.02;
+
+verifyError(test_case, @() build_lqr_simulink(plant, params), ...
+    "twsbr:lqr_simulation:invalid_timing");
+end
+
+function test_builder_embeds_supplied_plant_dynamics(test_case)
+plant = twsbr_params(struct("motor_force_gain", 13.0));
+config = experiment_config("quick");
+params = decode_controller_vector("LQR", ...
+    log10([10, 1, 200, 10, 0.1]), plant, config);
+
+try
+    model_path = build_lqr_simulink(plant, params);
+    load_system(model_path);
+    chart = find_chart("twsbr_lqr/nonlinear_plant/plant_dynamics");
+
+    verifyNotEmpty(test_case, regexp(string(chart.Script), ...
+        "motor_gain\s*=\s*13;", "once"));
+catch cause
+    rebuild_nominal_lqr();
+    rethrow(cause);
+end
+rebuild_nominal_lqr();
 end
 
 function test_model_has_workspace_inputs_logs_and_english_identifiers(test_case)
@@ -142,6 +173,22 @@ end
 function block_handle = source_block(port_handle)
 line_handle = get_param(port_handle, "Line");
 block_handle = get_param(line_handle, "SrcBlockHandle");
+end
+
+function chart = find_chart(block_path)
+stateflow_root = sfroot;
+chart = stateflow_root.find( ...
+    "-isa", "Stateflow.EMChart", "Path", char(block_path));
+if isempty(chart)
+    error("twsbr:test:chart_not_found", ...
+        "MATLAB Function chart was not found: %s", block_path);
+end
+end
+
+function rebuild_nominal_lqr()
+close_if_loaded("twsbr_lqr");
+close_if_loaded("twsbr_plant");
+build_lqr_simulink();
 end
 
 function absolute = is_absolute_path(file_path)
