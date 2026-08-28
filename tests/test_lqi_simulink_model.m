@@ -70,8 +70,13 @@ verifyEqual(test_case, source_block(input_port(model_name + "/position_error_int
     get_param(model_name + "/position_error", "Handle"));
 verifyEqual(test_case, source_block(input_port(model_name + "/position_error", 1)), ...
     get_param(model_name + "/state_demux", "Handle"));
+state_demux_ports = get_param(model_name + "/state_demux", "PortHandles");
+verifyEqual(test_case, source_port(input_port(model_name + "/position_error", 1)), ...
+    state_demux_ports.Outport(1));
 verifyEqual(test_case, source_block(input_port(model_name + "/position_error", 2)), ...
     get_param(model_name + "/reference_sampling", "Handle"));
+verifyEqual(test_case, source_block(input_port(model_name + "/state_gain", 1)), ...
+    get_param(model_name + "/state_sampling", "Handle"));
 end
 
 % Mutation caught: gainval=sample_time (Ts squared), wrong sample time, reset,
@@ -100,6 +105,36 @@ verifyEqual(test_case, str2double(get_param(integrator, "LowerSaturationLimit"))
     -params.position_integral_limit, "AbsTol", 1e-15);
 verifyEqual(test_case, source_block(input_port(integrator, 2)), ...
     get_param(model_name + "/reset_sampling", "Handle"));
+end
+
+% Mutation caught: a nonzero integral initial condition or a broken reset path
+% that makes repeated nonzero-reference simulations start from stale state.
+function test_reset_pulse_makes_lqi_logs_reproducible(test_case)
+[model_name, cleanup] = load_built_model(); %#ok<ASGLU>
+model_workspace = get_param(model_name, "ModelWorkspace");
+assignin(model_workspace, "position_reference_data", [0.0, 0.25; 0.05, 0.25]);
+assignin(model_workspace, "controller_reset_data", ...
+    [0.0, 1.0; 0.001, 0.0; 0.02, 1.0; 0.021, 0.0; 0.05, 0.0]);
+
+first_run = sim(model_name, "StopTime", "0.05");
+second_run = sim(model_name, "StopTime", "0.05");
+[first_integral_time, first_integral_values] = workspace_log_data( ...
+    first_run, "position_integral_log");
+[second_integral_time, second_integral_values] = workspace_log_data( ...
+    second_run, "position_integral_log");
+[first_raw_time, first_raw_values] = workspace_log_data(first_run, "u_raw_log");
+[second_raw_time, second_raw_values] = workspace_log_data(second_run, "u_raw_log");
+
+verifyEqual(test_case, first_integral_time, second_integral_time, "AbsTol", 1e-15);
+verifyEqual(test_case, first_integral_values, second_integral_values, "AbsTol", 1e-14);
+verifyEqual(test_case, first_raw_time, second_raw_time, "AbsTol", 1e-15);
+verifyEqual(test_case, first_raw_values, second_raw_values, "AbsTol", 1e-14);
+verifyEqual(test_case, first_integral_values(1), 0.0, "AbsTol", 1e-15);
+verifyEqual(test_case, second_integral_values(1), 0.0, "AbsTol", 1e-15);
+reset_index = find(abs(first_integral_time - 0.02) < 1e-12, 1);
+verifyNotEmpty(test_case, reset_index);
+verifyEqual(test_case, first_integral_values(reset_index), 0.0, "AbsTol", 1e-15);
+verifyEqual(test_case, second_integral_values(reset_index), 0.0, "AbsTol", 1e-15);
 end
 
 % Mutation caught: weakening the shared solver/timing contract.
@@ -220,6 +255,17 @@ end
 function block_handle = source_block(port_handle)
 line_handle = get_param(port_handle, "Line");
 block_handle = get_param(line_handle, "SrcBlockHandle");
+end
+
+function port_handle = source_port(input_handle)
+line_handle = get_param(input_handle, "Line");
+port_handle = get_param(line_handle, "SrcPortHandle");
+end
+
+function [time, values] = workspace_log_data(simulation_output, variable_name)
+log = simulation_output.get(char(variable_name));
+time = log.time;
+values = log.signals.values;
 end
 
 function assert_english_safe_names(test_case, model_name)
