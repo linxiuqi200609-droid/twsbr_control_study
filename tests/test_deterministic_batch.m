@@ -58,6 +58,39 @@ for index = 1:numel(expected_keys)
 end
 end
 
+function test_deterministic_batch_retains_structured_simulation_failures(test_case)
+[vectors, config] = starter_vectors_for_test();
+all_scenarios = heldout_scenarios(10);
+scenario_struct = struct("S2_saturation_stress", ...
+    all_scenarios.S2_saturation_stress);
+
+[metrics, raw] = run_deterministic_batch(vectors, twsbr_params(), ...
+    config, scenario_struct, 23);
+
+verifyEqual(test_case, height(metrics), 5);
+verifyEqual(test_case, numel(fieldnames(raw)), 5);
+failure_row = metrics.controller == "ATTITUDE_PID";
+verifyEqual(test_case, sum(failure_row), 1);
+verifyFalse(test_case, metrics.simulation_success(failure_row));
+verifyFalse(test_case, metrics.success(failure_row));
+verifyEqual(test_case, metrics.failure_reason(failure_row), "tilt_limit");
+raw_failure = raw.ATTITUDE_PID__S2_saturation_stress;
+verifyFalse(test_case, raw_failure.success);
+verifyEqual(test_case, raw_failure.failure_reason, "tilt_limit");
+end
+
+function test_deterministic_batch_rejects_nonscalar_scenario_split(test_case)
+[vectors, config] = starter_vectors_for_test();
+all_scenarios = heldout_scenarios(4.2);
+scenario = all_scenarios.S1_initial_tilt_3deg;
+scenario.split = ["test"; "test"];
+scenario_struct = struct("S1_initial_tilt_3deg", scenario);
+
+verifyError(test_case, @() run_deterministic_batch( ...
+    vectors, twsbr_params(), config, scenario_struct, 1), ...
+    "twsbr:batch:invalid_input");
+end
+
 function test_benchmark_reports_all_controllers_and_dimensions(test_case)
 [vectors, config] = starter_vectors_for_test();
 config.benchmark_repeats = 2;

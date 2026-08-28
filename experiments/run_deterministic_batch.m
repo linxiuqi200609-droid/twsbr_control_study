@@ -64,10 +64,17 @@ for index = 1:numel(scenario_fields)
     scenario = scenarios.(scenario_fields{index});
     if ~isstruct(scenario) || ~isscalar(scenario) || ...
             ~isfield(scenario, "name") || ~isfield(scenario, "split") || ...
+            ~is_text_scalar(scenario.name) || ...
+            ~is_text_scalar(scenario.split) || ...
             string(scenario.split) ~= "test"
         invalid_input();
     end
 end
+end
+
+function valid = is_text_scalar(value)
+valid = (isstring(value) && isscalar(value) && ~ismissing(value)) || ...
+    (ischar(value) && isrow(value));
 end
 
 function invalid_input()

@@ -228,6 +228,13 @@ for run_index = 0:1
     verifyEqual(test_case, numel(unique(rows.force_amplitude)), 1);
     verifyEqual(test_case, numel(unique(rows.measurement_noise_seed)), 1);
 end
+failure_row = table_out.run_index == 1 & ...
+    table_out.controller == "ATTITUDE_PID";
+verifyEqual(test_case, sum(failure_row), 1);
+verifyFalse(test_case, table_out.simulation_success(failure_row));
+verifyFalse(test_case, table_out.success(failure_row));
+verifyEqual(test_case, table_out.failure_reason(failure_row), ...
+    "position_limit");
 end
 
 function verify_scenarios_equal(test_case, actual, expected)
