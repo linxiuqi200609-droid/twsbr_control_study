@@ -17,6 +17,11 @@ if strlength(project_root) == 0 || ~isfolder(project_root)
     error("twsbr:environment:invalid_project_root", ...
         "project_root must identify an existing project repository.");
 end
+expected_root = string(fileparts(fileparts(mfilename("fullpath"))));
+if ~strcmpi(normalize_path(project_root), normalize_path(expected_root))
+    error("twsbr:environment:invalid_project_root", ...
+        "project_root must identify this study repository.");
+end
 
 [git_status, repository_root] = system(sprintf( ...
     'git -C "%s" rev-parse --show-toplevel', project_root));
