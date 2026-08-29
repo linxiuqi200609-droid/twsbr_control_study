@@ -1,5 +1,5 @@
 function simulation = run_attitude_pid_simulink( ...
-    plant_params, pid_params, scenario)
+    plant_params, pid_params, scenario, include_timing)
 %RUN_ATTITUDE_PID_SIMULINK Run the generated attitude PID model.
 
 if nargin < 1
@@ -15,6 +15,13 @@ end
 if nargin < 3
     scenarios = attitude_pid_scenarios();
     scenario = scenarios.positive_tilt;
+end
+if nargin < 4
+    include_timing = false;
+end
+if ~islogical(include_timing) || ~isscalar(include_timing)
+    error("twsbr:simulink:invalid_timing_option", ...
+        "include_timing must be a logical scalar.");
 end
 validate_scenario(scenario);
 
@@ -76,6 +83,10 @@ simulation.torque_disturbance = torque_disturbance;
 [simulation.success, simulation.failure_reason] = ...
     evaluate_success(state, plant_params);
 simulation.metrics = calculate_metrics(simulation);
+if include_timing
+    simulation.timing = struct( ...
+        "u_raw_time", u_raw_time, "u_time", u_time);
+end
 
 clear cleanup;
 close_system(model_name, 0);

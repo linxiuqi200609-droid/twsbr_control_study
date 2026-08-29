@@ -1,5 +1,5 @@
 function simulation = run_cascade_pid_simulink( ...
-    plant_params, params, scenario)
+    plant_params, params, scenario, include_timing)
 %RUN_CASCADE_PID_SIMULINK Run the generated cascade PID model.
 
 if nargin < 1
@@ -16,6 +16,13 @@ validate_cascade_pid_timing(params);
 if nargin < 3
     scenarios = cascade_pid_scenarios();
     scenario = scenarios.positive_position_step;
+end
+if nargin < 4
+    include_timing = false;
+end
+if ~islogical(include_timing) || ~isscalar(include_timing)
+    error("twsbr:simulink:invalid_timing_option", ...
+        "include_timing must be a logical scalar.");
 end
 validate_scenario(scenario, params);
 
@@ -148,6 +155,10 @@ simulation.saturated = saturated;
 simulation.success = success;
 simulation.failure_reason = failure_reason;
 simulation.metrics = calculate_metrics(simulation, scenario, params.plant_step);
+if include_timing
+    simulation.timing = struct( ...
+        "u_raw_time", u_raw_time, "u_time", u_time);
+end
 
 clear cleanup;
 close_system(model_name, 0);

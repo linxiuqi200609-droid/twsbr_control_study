@@ -95,13 +95,15 @@ end
 % Mutation caught: ignoring a fuzzy effective-gain disagreement or accepting
 % an equality-at-tolerance relative error.
 function test_comparison_rejects_fuzzy_gain_mutation(test_case)
-matlab_result = with_fuzzy_diagnostics(make_small_common_result(0.0), 1.0);
-simulink_result = with_fuzzy_diagnostics(make_small_common_result(0.0), 1.0);
-simulink_result.diagnostics(2).kp_theta = 1.0 + 2e-6;
+matlab_result = with_fuzzy_diagnostics( ...
+    make_small_common_result(0.0), 1000000.0);
+simulink_result = with_fuzzy_diagnostics( ...
+    make_small_common_result(0.0), 1000000.0);
+simulink_result.diagnostics(2).kp_theta = 1000001.0;
 
 comparison = compare_matlab_simulink(matlab_result, simulink_result, 0.001);
-verifyGreaterThanOrEqual(test_case, ...
-    comparison.max_fuzzy_gain_relative_error, 1e-6);
+verifyEqual(test_case, comparison.max_fuzzy_gain_relative_error, 1e-6, ...
+    "AbsTol", 1e-18);
 verifyFalse(test_case, comparison.fuzzy_gain_accepted);
 verifyFalse(test_case, comparison.accepted);
 end
@@ -119,14 +121,52 @@ end
 % Mutation caught: shifting one controller update by a complete controller
 % period while leaving state and applied-input samples unchanged.
 function test_comparison_rejects_one_controller_period_timing_mutation(test_case)
-matlab_result = make_small_common_result(0.0);
-simulink_result = make_small_common_result(0.0);
+matlab_result = make_timed_common_result();
+simulink_result = make_timed_common_result();
 simulink_result.timing = struct( ...
-    "u_raw_time", [0.0; 0.01], "u_time", [0.0; 0.01], ...
-    "controller_update_time", [0.0; 0.02], "sample_time", 0.01);
+    "u_raw_time", [0.0; 0.01; 0.02], "u_time", [0.0; 0.01; 0.02], ...
+    "controller_update_time", [0.0; 0.02], "sample_time", 0.01, ...
+    "validated", true);
 verifyError(test_case, @() compare_matlab_simulink( ...
     matlab_result, simulink_result, 0.001), ...
     "twsbr:equivalence:invalid_timing");
+end
+
+% Mutation caught: rejecting a duration that ends in a valid partial control
+% interval, or extrapolating a command rather than holding its final update.
+function test_generated_runner_accepts_partial_final_control_interval(test_case)
+[vectors, config] = starter_vectors_for_test();
+scenarios = representative_scenarios();
+scenario = scenarios.position;
+scenario.duration = 3.205;
+matlab_result = simulate_control_system("LQR", vectors.LQR, twsbr_params(), ...
+    config, scenario, config.global_seed);
+simulink_result = run_controller_simulink("LQR", vectors.LQR, ...
+    twsbr_params(), config, scenario);
+comparison = compare_matlab_simulink( ...
+    matlab_result, simulink_result, config.plant_step);
+
+verifyEqual(test_case, simulink_result.time(end), 3.205, "AbsTol", 1e-15);
+verifyEqual(test_case, simulink_result.timing.controller_update_time(end), ...
+    3.20, "AbsTol", 1e-15);
+verifyTrue(test_case, comparison.accepted);
+end
+
+% Mutation caught: replacing legacy raw log timing with a synthesized schedule
+% or discarding the raw axes before the generic runner can validate them.
+function test_legacy_runner_exposes_actual_raw_log_timing(test_case)
+[vectors, config] = starter_vectors_for_test();
+scenarios = representative_scenarios();
+params = decode_controller_vector("ATTITUDE_PID", vectors.ATTITUDE_PID, ...
+    twsbr_params(), config);
+legacy = run_attitude_pid_simulink(twsbr_params(), params, ...
+    legacy_attitude_scenario(scenarios.attitude), true);
+generic = run_controller_simulink("ATTITUDE_PID", vectors.ATTITUDE_PID, ...
+    twsbr_params(), config, scenarios.attitude);
+
+verifyTrue(test_case, isfield(legacy, "timing"));
+verifyEqual(test_case, generic.timing.u_raw_time, legacy.timing.u_raw_time);
+verifyEqual(test_case, generic.timing.u_time, legacy.timing.u_time);
 end
 
 % Mutation caught: accepting an unsupported controller instead of preserving a
@@ -245,9 +285,26 @@ result.state(:,3) = offset;
 result.u = offset*ones(2,1);
 end
 
+function result = make_timed_common_result()
+result = struct();
+result.time = [0.0; 0.01; 0.02];
+result.state = zeros(3, 4);
+result.u = zeros(3, 1);
+end
+
 function result = with_fuzzy_diagnostics(result, gain)
 result.diagnostics = repmat(struct("kp_theta", gain, "ki_theta", gain, ...
     "kd_theta", gain), numel(result.time), 1);
+end
+
+function scenario = legacy_attitude_scenario(generic_scenario)
+scenario = struct( ...
+    "name", generic_scenario.name, ...
+    "initial_state", generic_scenario.initial_state, ...
+    "duration", generic_scenario.duration, ...
+    "theta_reference", @(~) 0.0, ...
+    "force_disturbance", generic_scenario.force_disturbance, ...
+    "torque_disturbance", generic_scenario.torque_disturbance);
 end
 
 function [vectors, config] = starter_vectors_for_test()
