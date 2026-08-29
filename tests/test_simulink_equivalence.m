@@ -178,6 +178,27 @@ verifyEqual(test_case, simulink_result.timing.controller_update_time(end), ...
 verifyTrue(test_case, comparison.accepted);
 end
 
+% Mutation caught: retaining a terminal-held fuzzy gain timestamp in timing
+% metadata even after the raw gain log has been normalized to update samples.
+function test_fuzzy_runner_normalizes_partial_final_gain_timing(test_case)
+[vectors, config] = starter_vectors_for_test();
+scenarios = representative_scenarios();
+scenario = scenarios.position;
+scenario.duration = 3.205;
+matlab_result = simulate_control_system("FUZZY_PID", vectors.FUZZY_PID, ...
+    twsbr_params(), config, scenario, config.global_seed);
+simulink_result = run_controller_simulink("FUZZY_PID", vectors.FUZZY_PID, ...
+    twsbr_params(), config, scenario);
+comparison = compare_matlab_simulink( ...
+    matlab_result, simulink_result, config.plant_step);
+
+verifyEqual(test_case, simulink_result.timing.fuzzy_gain_time(end), 3.20, ...
+    "AbsTol", 1e-15);
+verifyEqual(test_case, simulink_result.timing.fuzzy_gain_time, ...
+    simulink_result.timing.controller_update_time);
+verifyTrue(test_case, comparison.accepted);
+end
+
 % Mutation caught: replacing legacy raw log timing with a synthesized schedule
 % or discarding the raw axes before the generic runner can validate them.
 function test_legacy_runner_exposes_actual_raw_log_timing(test_case)

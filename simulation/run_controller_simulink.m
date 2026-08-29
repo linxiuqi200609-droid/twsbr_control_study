@@ -268,7 +268,12 @@ kd_update_time = validate_controller_log_time( ...
 kp = expand_controller_signal(kp_update_time, kp, time, sample_time);
 ki = expand_controller_signal(ki_update_time, ki, time, sample_time);
 kd = expand_controller_signal(kd_update_time, kd, time, sample_time);
-fuzzy_gain_time = kp_time;
+if ~isequal(kp_update_time, ki_update_time) || ...
+        ~isequal(kp_update_time, kd_update_time)
+    error("twsbr:simulink_runner:invalid_timing", ...
+        "Fuzzy gain logs must share the validated controller update schedule.");
+end
+fuzzy_gain_time = kp_update_time;
 diagnostics = repmat(struct("kp_theta", 0.0, "ki_theta", 0.0, ...
     "kd_theta", 0.0), numel(time), 1);
 for index = 1:numel(time)
