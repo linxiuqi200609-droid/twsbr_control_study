@@ -68,6 +68,65 @@ verifyError(test_case, @() compare_matlab_simulink( ...
 
 verifyError(test_case, @() compare_matlab_simulink( ...
     valid_result, valid_result, 0.0), "twsbr:equivalence:invalid_step");
+
+verifyError(test_case, @() compare_matlab_simulink( ...
+    valid_result, valid_result, nan), "twsbr:equivalence:invalid_step");
+verifyError(test_case, @() compare_matlab_simulink( ...
+    valid_result, valid_result, 0.001 + 1i), "twsbr:equivalence:invalid_step");
+
+empty_time = valid_result;
+empty_time.time = zeros(0, 1);
+empty_time.state = zeros(0, 4);
+empty_time.u = zeros(0, 1);
+verifyError(test_case, @() compare_matlab_simulink( ...
+    empty_time, valid_result, 0.001), "twsbr:equivalence:invalid_time");
+
+nonfinite_u = valid_result;
+nonfinite_u.u(2) = inf;
+verifyError(test_case, @() compare_matlab_simulink( ...
+    nonfinite_u, valid_result, 0.001), "twsbr:equivalence:invalid_result");
+
+no_overlap = valid_result;
+no_overlap.time = [0.01; 0.011];
+verifyError(test_case, @() compare_matlab_simulink( ...
+    no_overlap, valid_result, 0.001), "twsbr:equivalence:no_overlap");
+end
+
+% Mutation caught: ignoring a fuzzy effective-gain disagreement or accepting
+% an equality-at-tolerance relative error.
+function test_comparison_rejects_fuzzy_gain_mutation(test_case)
+matlab_result = with_fuzzy_diagnostics(make_small_common_result(0.0), 1.0);
+simulink_result = with_fuzzy_diagnostics(make_small_common_result(0.0), 1.0);
+simulink_result.diagnostics(2).kp_theta = 1.0 + 2e-6;
+
+comparison = compare_matlab_simulink(matlab_result, simulink_result, 0.001);
+verifyGreaterThanOrEqual(test_case, ...
+    comparison.max_fuzzy_gain_relative_error, 1e-6);
+verifyFalse(test_case, comparison.fuzzy_gain_accepted);
+verifyFalse(test_case, comparison.accepted);
+end
+
+% Mutation caught: treating malformed fuzzy diagnostics as absent validation.
+function test_comparison_rejects_malformed_fuzzy_diagnostics(test_case)
+matlab_result = with_fuzzy_diagnostics(make_small_common_result(0.0), 1.0);
+simulink_result = with_fuzzy_diagnostics(make_small_common_result(0.0), 1.0);
+simulink_result.diagnostics = simulink_result.diagnostics(1);
+verifyError(test_case, @() compare_matlab_simulink( ...
+    matlab_result, simulink_result, 0.001), ...
+    "twsbr:equivalence:invalid_diagnostics");
+end
+
+% Mutation caught: shifting one controller update by a complete controller
+% period while leaving state and applied-input samples unchanged.
+function test_comparison_rejects_one_controller_period_timing_mutation(test_case)
+matlab_result = make_small_common_result(0.0);
+simulink_result = make_small_common_result(0.0);
+simulink_result.timing = struct( ...
+    "u_raw_time", [0.0; 0.01], "u_time", [0.0; 0.01], ...
+    "controller_update_time", [0.0; 0.02], "sample_time", 0.01);
+verifyError(test_case, @() compare_matlab_simulink( ...
+    matlab_result, simulink_result, 0.001), ...
+    "twsbr:equivalence:invalid_timing");
 end
 
 % Mutation caught: accepting an unsupported controller instead of preserving a
@@ -78,6 +137,40 @@ scenario = representative_scenarios();
 verifyError(test_case, @() run_controller_simulink("UNKNOWN", 0, ...
     twsbr_params(), config, scenario.attitude), ...
     "twsbr:simulink_runner:unsupported_controller");
+end
+
+% Mutation caught: accepting nonzero or malformed measurement noise even
+% though the generated Simulink models have no noise input.
+function test_runner_rejects_unsupported_measurement_noise(test_case)
+[vectors, config] = starter_vectors_for_test();
+scenarios = representative_scenarios();
+nonzero_noise = scenarios.attitude;
+nonzero_noise.measurement_noise_std(1) = 1e-3;
+verifyError(test_case, @() run_controller_simulink( ...
+    "ATTITUDE_PID", vectors.ATTITUDE_PID, twsbr_params(), config, ...
+    nonzero_noise), "twsbr:simulink_runner:invalid_noise");
+
+malformed_noise = scenarios.attitude;
+malformed_noise.measurement_noise_std = zeros(3, 1);
+verifyError(test_case, @() run_controller_simulink( ...
+    "ATTITUDE_PID", vectors.ATTITUDE_PID, twsbr_params(), config, ...
+    malformed_noise), "twsbr:simulink_runner:invalid_noise");
+end
+
+% Mutation caught: allowing invalid reference or disturbance outputs to reach
+% either a model workspace or a legacy runner with inconsistent identifiers.
+function test_runner_rejects_invalid_scenario_signal_outputs(test_case)
+[vectors, config] = starter_vectors_for_test();
+scenarios = representative_scenarios();
+invalid_scenarios = repmat(scenarios.attitude, 3, 1);
+invalid_scenarios(1).x_reference = @(~) [0.0; 0.0];
+invalid_scenarios(2).force_disturbance = @(~) 1.0 + 1.0i;
+invalid_scenarios(3).torque_disturbance = @(~) nan;
+for index = 1:numel(invalid_scenarios)
+    verifyError(test_case, @() run_controller_simulink( ...
+        "ATTITUDE_PID", vectors.ATTITUDE_PID, twsbr_params(), config, ...
+        invalid_scenarios(index)), "twsbr:simulink_runner:invalid_signal");
+end
 end
 
 % Mutation caught: omitting a dispatch path, reordering names, changing a
@@ -107,11 +200,13 @@ result = run_controller_simulink("ATTITUDE_PID", vectors.ATTITUDE_PID, ...
     twsbr_params(), config, scenarios.attitude);
 
 required_fields = ["controller_name"; "scenario_name"; "time"; "state"; ...
-    "u"; "success"; "failure_reason"; "diagnostics"];
+    "u"; "success"; "failure_reason"; "diagnostics"; "timing"];
 verifyTrue(test_case, all(isfield(result, required_fields)));
 verifyEqual(test_case, result.controller_name, "ATTITUDE_PID");
 verifyEqual(test_case, size(result.state, 2), 4);
 verifyEqual(test_case, numel(result.u), numel(result.time));
+verifyEqual(test_case, result.timing.sample_time, 0.01, "AbsTol", 1e-15);
+verifyTrue(test_case, result.timing.validated);
 end
 
 % Mutation caught: omitting effective fuzzy gains or silently accepting a
@@ -148,6 +243,11 @@ result.state = zeros(2,4);
 result.state(:,1) = offset;
 result.state(:,3) = offset;
 result.u = offset*ones(2,1);
+end
+
+function result = with_fuzzy_diagnostics(result, gain)
+result.diagnostics = repmat(struct("kp_theta", gain, "ki_theta", gain, ...
+    "kd_theta", gain), numel(result.time), 1);
 end
 
 function [vectors, config] = starter_vectors_for_test()

@@ -37,13 +37,10 @@ for index = 1:row_count
     tilt_tolerance_deg(index) = comparison.tilt_tolerance_deg;
     position_tolerance_m(index) = comparison.position_tolerance_m;
     input_tolerance(index) = comparison.input_tolerance;
-    if name == "FUZZY_PID"
-        max_fuzzy_gain_relative_error(index) = compare_fuzzy_gains( ...
-            matlab_result, simulink_result, config.plant_step);
-        fuzzy_gain_accepted(index) = ...
-            max_fuzzy_gain_relative_error(index) < 1e-6;
-    end
-    accepted(index) = comparison.accepted && fuzzy_gain_accepted(index);
+    max_fuzzy_gain_relative_error(index) = ...
+        comparison.max_fuzzy_gain_relative_error;
+    fuzzy_gain_accepted(index) = comparison.fuzzy_gain_accepted;
+    accepted(index) = comparison.accepted;
 end
 
 validation = table(controller, scenario_name, max_tilt_difference_deg, ...
@@ -83,38 +80,5 @@ if controller_name == "ATTITUDE_PID"
     scenario = training.T1_initial_tilt_5deg;
 else
     scenario = training.T2_position_step_0p5m;
-end
-end
-
-function maximum_relative_error = compare_fuzzy_gains( ...
-        matlab_result, simulink_result, plant_step)
-gain_names = ["kp_theta"; "ki_theta"; "kd_theta"];
-maximum_relative_error = 0.0;
-for index = 1:numel(gain_names)
-    name = gain_names(index);
-    matlab_values = diagnostic_values(matlab_result.diagnostics, name);
-    simulink_values = diagnostic_values(simulink_result.diagnostics, name);
-    final_time = min(matlab_result.time(end), simulink_result.time(end));
-    common_time = (0:plant_step:final_time).';
-    matlab_values = interp1(matlab_result.time, matlab_values, ...
-        common_time, "pchip");
-    simulink_values = interp1(simulink_result.time, simulink_values, ...
-        common_time, "pchip");
-    relative_error = abs(matlab_values - simulink_values) ./ ...
-        max(abs(matlab_values), eps);
-    maximum_relative_error = max(maximum_relative_error, max(relative_error));
-end
-end
-
-function values = diagnostic_values(diagnostics, name)
-if ~isstruct(diagnostics) || isempty(diagnostics) || ...
-        ~all(isfield(diagnostics, name))
-    error("twsbr:simulink_batch:missing_fuzzy_diagnostics", ...
-        "Fuzzy validation requires %s diagnostics.", name);
-end
-values = reshape([diagnostics.(name)], [], 1);
-if any(~isfinite(values))
-    error("twsbr:simulink_batch:invalid_fuzzy_diagnostics", ...
-        "Fuzzy diagnostics must be finite.");
 end
 end
