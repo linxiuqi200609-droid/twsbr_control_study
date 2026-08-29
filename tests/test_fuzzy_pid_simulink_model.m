@@ -136,9 +136,12 @@ verifyLessThanOrEqual(test_case, workspace_log_data_values(first, "ki_theta_log"
 verifyGreaterThanOrEqual(test_case, workspace_log_data_values(first, "kd_theta_log"), 0.0);
 verifyLessThanOrEqual(test_case, workspace_log_data_values(first, "kd_theta_log"), params.kd_theta_max);
 [time, position_integral] = workspace_log_data(first, "position_integral_log");
+[theta_time, theta_integral] = workspace_log_data(first, "theta_integral_log");
 reset_index = find(abs(time - 0.03) < 1e-12, 1);
 verifyNotEmpty(test_case, reset_index);
+verifyEqual(test_case, theta_time, time, "AbsTol", 1e-15);
 verifyEqual(test_case, position_integral(reset_index), 0.0, "AbsTol", 1e-15);
+verifyEqual(test_case, theta_integral(reset_index), 0.0, "AbsTol", 1e-15);
 [state_time, state] = workspace_log_data(first, "state_log");
 sample_index = find(abs(state_time) < 1e-12, 1);
 control = fuzzy_pid_step(struct("position_integral", 0.0, "theta_integral", 0.0), ...
@@ -151,6 +154,19 @@ verifyEqual(test_case, workspace_log_data_value_at(first, "kd_theta_log", 0.0), 
     control.kd_theta, "AbsTol", 1e-12);
 verifyEqual(test_case, workspace_log_data_value_at(first, "u_raw_log", 0.0), ...
     control.u_raw, "AbsTol", 1e-12);
+reset_state_index = find(abs(state_time - 0.03) < 1e-12, 1);
+verifyNotEmpty(test_case, reset_state_index);
+reset_control = fuzzy_pid_step( ...
+    struct("position_integral", 0.0, "theta_integral", 0.0), ...
+    reshape(state(:, :, reset_state_index), [], 1), 0.25, params);
+verifyEqual(test_case, workspace_log_data_value_at(first, "kp_theta_log", 0.03), ...
+    reset_control.kp_theta, "AbsTol", 1e-12);
+verifyEqual(test_case, workspace_log_data_value_at(first, "ki_theta_log", 0.03), ...
+    reset_control.ki_theta, "AbsTol", 1e-12);
+verifyEqual(test_case, workspace_log_data_value_at(first, "kd_theta_log", 0.03), ...
+    reset_control.kd_theta, "AbsTol", 1e-12);
+verifyEqual(test_case, workspace_log_data_value_at(first, "u_raw_log", 0.03), ...
+    reset_control.u_raw, "AbsTol", 1e-12);
 end
 
 % Mutation caught: accepting a controller rate outside the required 0.01 s contract.
