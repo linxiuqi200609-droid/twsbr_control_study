@@ -5,10 +5,13 @@ function comparison = compare_matlab_simulink( ...
 validate_result(matlab_result);
 validate_result(simulink_result);
 validate_plant_step(plant_step);
-[common_time, final_time] = common_time_grid( ...
+[common_time, ~] = common_time_grid( ...
     matlab_result.time, simulink_result.time, plant_step);
+if isfield(matlab_result, "timing")
+    validate_timing(matlab_result.timing, matlab_result.time(end));
+end
 if isfield(simulink_result, "timing")
-    validate_timing(simulink_result.timing, final_time);
+    validate_timing(simulink_result.timing, simulink_result.time(end));
 end
 
 matlab_state = interpolate_result(matlab_result.time, ...
@@ -147,7 +150,7 @@ end
 
 function validate_timing(timing, final_time)
 required_fields = ["u_raw_time"; "u_time"; "controller_update_time"; ...
-    "sample_time"; "validated"];
+    "u_raw"; "u"; "sample_time"; "validated"];
 if ~isstruct(timing) || ~isscalar(timing) || ...
         ~all(isfield(timing, required_fields)) || ...
         ~islogical(timing.validated) || ~isscalar(timing.validated) || ...
@@ -158,19 +161,26 @@ if ~isstruct(timing) || ~isscalar(timing) || ...
         "Timing metadata must confirm the 0.01 second control schedule.");
 end
 validate_controller_log_axis( ...
-    timing.u_raw_time, final_time, timing.sample_time, true);
-validate_controller_log_axis(timing.u_time, final_time, timing.sample_time, true);
+    timing.u_raw_time, timing.u_raw, final_time, timing.sample_time, true);
 validate_controller_log_axis( ...
-    timing.controller_update_time, final_time, timing.sample_time, false);
+    timing.u_time, timing.u, final_time, timing.sample_time, true);
+validate_controller_log_axis( ...
+    timing.controller_update_time, [], final_time, timing.sample_time, false);
 if isfield(timing, "fuzzy_gain_time") && ~isempty(timing.fuzzy_gain_time)
     validate_controller_log_axis( ...
-        timing.fuzzy_gain_time, final_time, timing.sample_time, true);
+        timing.fuzzy_gain_time, [], final_time, timing.sample_time, false);
 end
 end
 
 function validate_controller_log_axis( ...
-        time, final_time, sample_time, allow_terminal_hold)
+        time, values, final_time, sample_time, allow_terminal_hold)
 validate_time(time, "twsbr:equivalence:invalid_timing");
+if ~isempty(values) && (~isnumeric(values) || ~isreal(values) || ...
+        ~iscolumn(values) || numel(values) ~= numel(time) || ...
+        any(~isfinite(values)))
+    error("twsbr:equivalence:invalid_timing", ...
+        "Controller log values must be finite real columns aligned with time.");
+end
 update_time = controller_schedule(final_time, sample_time);
 matches_updates = numel(time) == numel(update_time) && ...
     max(abs(time - update_time)) <= 1e-12;
@@ -179,9 +189,19 @@ has_terminal_hold = allow_terminal_hold && ...
     numel(time) == numel(update_time) + 1 && ...
     max(abs(time(1:end - 1) - update_time)) <= 1e-12 && ...
     abs(time(end) - final_time) <= 1e-12;
+if has_terminal_hold && ~isempty(values)
+    has_terminal_hold = terminal_value_is_held(values);
+end
 if ~matches_updates && ~has_terminal_hold
     error("twsbr:equivalence:invalid_timing", ...
         "Controller logs must follow the update schedule and terminal hold.");
+end
+
+function held = terminal_value_is_held(values)
+reference = values(end - 1, :);
+terminal = values(end, :);
+tolerance = 1e-12 * max(1.0, max(abs([reference; terminal]), [], "all"));
+held = all(abs(terminal - reference) <= tolerance, "all");
 end
 end
 

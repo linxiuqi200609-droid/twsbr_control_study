@@ -157,7 +157,8 @@ simulation.failure_reason = failure_reason;
 simulation.metrics = calculate_metrics(simulation, scenario, params.plant_step);
 if include_timing
     simulation.timing = struct( ...
-        "u_raw_time", u_raw_time, "u_time", u_time);
+        "u_raw_time", u_raw_time, "u_raw", u_raw_values, ...
+        "u_time", u_time, "u", u_values);
 end
 
 clear cleanup;

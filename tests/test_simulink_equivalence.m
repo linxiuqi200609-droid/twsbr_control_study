@@ -126,9 +126,35 @@ simulink_result = make_timed_common_result();
 simulink_result.timing = struct( ...
     "u_raw_time", [0.0; 0.01; 0.02], "u_time", [0.0; 0.01; 0.02], ...
     "controller_update_time", [0.0; 0.02], "sample_time", 0.01, ...
-    "validated", true);
+    "validated", true, "u_raw", zeros(3, 1), "u", zeros(3, 1));
 verifyError(test_case, @() compare_matlab_simulink( ...
     matlab_result, simulink_result, 0.001), ...
+    "twsbr:equivalence:invalid_timing");
+end
+
+% Mutation caught: validating a longer Simulink controller schedule only
+% through a shorter MATLAB comparison horizon.
+function test_comparison_allows_timing_beyond_truncated_common_interval(test_case)
+matlab_result = make_uniform_result(1.5, 0.01);
+simulink_result = make_uniform_result(3.2, 0.01);
+simulink_result.timing = valid_timing(3.2, 0.01);
+
+comparison = compare_matlab_simulink(matlab_result, simulink_result, 0.01);
+
+verifyEqual(test_case, comparison.time(end), 1.5, "AbsTol", 1e-15);
+verifyTrue(test_case, comparison.accepted);
+end
+
+% Mutation caught: accepting a terminal log sample at a valid timestamp even
+% though its value is not the final held controller update.
+function test_comparison_rejects_changed_terminal_hold_value(test_case)
+matlab_result = make_uniform_result(0.015, 0.005);
+simulink_result = make_uniform_result(0.015, 0.005);
+simulink_result.timing = valid_timing(0.015, 0.01);
+simulink_result.timing.u_raw(end) = 2.0;
+
+verifyError(test_case, @() compare_matlab_simulink( ...
+    matlab_result, simulink_result, 0.005), ...
     "twsbr:equivalence:invalid_timing");
 end
 
@@ -290,6 +316,28 @@ result = struct();
 result.time = [0.0; 0.01; 0.02];
 result.state = zeros(3, 4);
 result.u = zeros(3, 1);
+end
+
+function result = make_uniform_result(final_time, step)
+result = struct();
+result.time = (0:step:final_time).';
+result.state = zeros(numel(result.time), 4);
+result.u = zeros(numel(result.time), 1);
+end
+
+function timing = valid_timing(duration, sample_time)
+update_time = (0:sample_time:floor(duration / sample_time) * sample_time).';
+terminal_hold = duration > update_time(end) + 1e-12;
+if terminal_hold
+    log_time = [update_time; duration];
+else
+    log_time = update_time;
+end
+timing = struct( ...
+    "u_raw_time", log_time, "u_time", log_time, ...
+    "controller_update_time", update_time, "sample_time", sample_time, ...
+    "validated", true, "u_raw", ones(numel(log_time), 1), ...
+    "u", ones(numel(log_time), 1));
 end
 
 function result = with_fuzzy_diagnostics(result, gain)
