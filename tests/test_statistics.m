@@ -38,6 +38,20 @@ verifyError(test_case, @() wilson_interval(1, 2, 0), ...
     "twsbr:statistics:InvalidZValue");
 end
 
+function test_wilson_rejects_each_malformed_input_category(test_case)
+count_calls = {@() wilson_interval("bad", 2, 1), ...
+    @() wilson_interval(complex(1, 1), 2, 1), ...
+    @() wilson_interval([1, 2], 2, 1), @() wilson_interval(-1, 2, 1), ...
+    @() wilson_interval(1.5, 2, 1), @() wilson_interval(3, 2, 1), ...
+    @() wilson_interval(0, 0, 1)};
+verify_all_errors(test_case, count_calls, "twsbr:statistics:InvalidCounts");
+z_calls = {@() wilson_interval(1, 2, "bad"), ...
+    @() wilson_interval(1, 2, complex(1, 1)), ...
+    @() wilson_interval(1, 2, [1, 2]), @() wilson_interval(1, 2, 0), ...
+    @() wilson_interval(1, 2, -1), @() wilson_interval(1, 2, inf)};
+verify_all_errors(test_case, z_calls, "twsbr:statistics:InvalidZValue");
+end
+
 function test_bootstrap_is_deterministic_and_preserves_global_rng(test_case)
 rng(412, "twister");
 state_before = rng;
@@ -64,6 +78,28 @@ verifyError(test_case, @() bootstrap_mean_ci([1,2], 1, -1), ...
     "twsbr:statistics:InvalidSeed");
 end
 
+function test_bootstrap_rejects_each_malformed_input_category(test_case)
+value_calls = {@() bootstrap_mean_ci("bad", 1, 0), ...
+    @() bootstrap_mean_ci(complex(1, 1), 1, 0), ...
+    @() bootstrap_mean_ci([], 1, 0), ...
+    @() bootstrap_mean_ci(ones(2), 1, 0), ...
+    @() bootstrap_mean_ci([1, inf], 1, 0)};
+verify_all_errors(test_case, value_calls, "twsbr:statistics:InvalidValues");
+resample_calls = {@() bootstrap_mean_ci(1, "bad", 0), ...
+    @() bootstrap_mean_ci(1, [1, 2], 0), ...
+    @() bootstrap_mean_ci(1, 0, 0), @() bootstrap_mean_ci(1, 1.5, 0)};
+verify_all_errors(test_case, resample_calls, ...
+    "twsbr:statistics:InvalidResampleCount");
+seed_calls = {@() bootstrap_mean_ci(1, 1, "bad"), ...
+    @() bootstrap_mean_ci(1, 1, complex(1, 1)), ...
+    @() bootstrap_mean_ci(1, 1, [1, 2]), ...
+    @() bootstrap_mean_ci(1, 1, -1), @() bootstrap_mean_ci(1, 1, 1.5), ...
+    @() bootstrap_mean_ci(1, 1, 2^32)};
+verify_all_errors(test_case, seed_calls, "twsbr:statistics:InvalidSeed");
+verifyEqual(test_case, bootstrap_mean_ci(1, 1, 0), 1);
+verifyEqual(test_case, bootstrap_mean_ci(1, 1, 2^32 - 1), 1);
+end
+
 function test_cliffs_delta_ties_and_invalid_inputs(test_case)
 verifyEqual(test_case, cliffs_delta([1,2], [1,2]), 0.0);
 verifyEqual(test_case, cliffs_delta([1;2], [2;3]), -0.75);
@@ -73,6 +109,17 @@ verifyError(test_case, @() cliffs_delta([1,nan], 1), ...
     "twsbr:statistics:InvalidValues");
 verifyError(test_case, @() cliffs_delta(complex(1,1), 1), ...
     "twsbr:statistics:InvalidValues");
+end
+
+function test_cliffs_delta_rejects_every_vector_category(test_case)
+first_calls = {@() cliffs_delta("bad", 1), ...
+    @() cliffs_delta(complex(1, 1), 1), @() cliffs_delta([], 1), ...
+    @() cliffs_delta(ones(2), 1), @() cliffs_delta([1, nan], 1)};
+second_calls = {@() cliffs_delta(1, "bad"), ...
+    @() cliffs_delta(1, complex(1, 1)), @() cliffs_delta(1, []), ...
+    @() cliffs_delta(1, ones(2)), @() cliffs_delta(1, [1, inf])};
+verify_all_errors(test_case, first_calls, "twsbr:statistics:InvalidValues");
+verify_all_errors(test_case, second_calls, "twsbr:statistics:InvalidValues");
 end
 
 function test_holm_known_values_shape_monotonicity_and_ties(test_case)
@@ -91,6 +138,14 @@ verifyError(test_case, @() holm_adjust([]), ...
     "twsbr:statistics:InvalidPValues");
 verifyError(test_case, @() holm_adjust([0.1, 1.1]), ...
     "twsbr:statistics:InvalidPValues");
+end
+
+function test_holm_rejects_each_malformed_input_category(test_case)
+invalid_calls = {@() holm_adjust("bad"), @() holm_adjust(complex(0.1, 1)), ...
+    @() holm_adjust([]), @() holm_adjust(ones(2) / 2), ...
+    @() holm_adjust([0.1, nan]), @() holm_adjust([-eps, 0.1]), ...
+    @() holm_adjust([0.1, 1 + eps])};
+verify_all_errors(test_case, invalid_calls, "twsbr:statistics:InvalidPValues");
 end
 
 function test_descriptive_statistics_condition_on_success(test_case)
@@ -138,6 +193,45 @@ row_a = summary(summary.controller == "A" & ...
 verifyEqual(test_case, row_a.mean, 1);
 verifyEqual(test_case, row_a.n, 1);
 verifyTrue(test_case, isnan(row_a.bootstrap_ci_low));
+end
+
+function test_deterministic_and_monte_carlo_share_core_summary_values(test_case)
+data = synthetic_data();
+metrics = ["theta_rms_deg", "position_itae"];
+deterministic = summarize_deterministic_results(data, metrics);
+monte_carlo = summarize_monte_carlo_results(data, metrics, 40, 17);
+expected_controller = ["B";"B";"A";"A";"C";"C"];
+expected_metric = ["theta_rms_deg";"position_itae"; ...
+    "theta_rms_deg";"position_itae";"theta_rms_deg";"position_itae"];
+expected_n = [2;2;1;1;0;0];
+expected_mean = [2.5;25;1;10;nan;nan];
+expected_median = expected_mean;
+expected_std = [sqrt(0.5);sqrt(50);0;0;nan;nan];
+expected_q1 = [2;20;1;10;nan;nan];
+expected_q3 = [3;30;1;10;nan;nan];
+expected_total = [2;2;2;2;1;1];
+expected_success_count = [2;2;1;1;0;0];
+expected_success_rate = [1;1;0.5;0.5;0;0];
+for summary = {deterministic, monte_carlo}
+    value = summary{1};
+    verifyEqual(test_case, value.controller, expected_controller);
+    verifyEqual(test_case, value.metric, expected_metric);
+    verifyEqual(test_case, value.n, expected_n);
+    verifyEqual(test_case, value.mean, expected_mean, "AbsTol", 1e-12);
+    verifyEqual(test_case, value.median, expected_median, "AbsTol", 1e-12);
+    verifyEqual(test_case, value.std, expected_std, "AbsTol", 1e-12);
+    verifyEqual(test_case, value.q1, expected_q1, "AbsTol", 1e-12);
+    verifyEqual(test_case, value.q3, expected_q3, "AbsTol", 1e-12);
+    verifyEqual(test_case, value.total_n, expected_total);
+    verifyEqual(test_case, value.success_count, expected_success_count);
+    verifyEqual(test_case, value.success_rate, expected_success_rate);
+end
+verifyTrue(test_case, all(isnan(deterministic.bootstrap_ci_low)));
+core_columns = ["controller", "metric", "n", "mean", "median", "std", ...
+    "q1", "q3", "total_n", "success_count", "success_rate", ...
+    "success_ci_low", "success_ci_high"];
+verifyEqual(test_case, deterministic(:, core_columns), ...
+    monte_carlo(:, core_columns));
 end
 
 function test_failed_nonfinite_values_are_excluded_before_statistics(test_case)
@@ -204,6 +298,16 @@ verifyError(test_case, @() run_nonparametric_tests(data, 'theta_rms_deg'), ...
     "twsbr:statistics:InvalidMetricNames");
 verifyError(test_case, @() run_nonparametric_tests(struct(), "theta_rms_deg"), ...
     "twsbr:statistics:InvalidData");
+end
+
+function test_unsupported_controller_column_is_rejected_stably(test_case)
+controller_values = {struct("name", "A"); "B"};
+data = table(controller_values, [true; true], [1; 2], ...
+    'VariableNames', {'controller', 'success', 'metric'});
+calls = {@() summarize_deterministic_results(data, "metric"), ...
+    @() summarize_monte_carlo_results(data, "metric", 10, 1), ...
+    @() run_nonparametric_tests(data, "metric")};
+verify_all_errors(test_case, calls, "twsbr:statistics:InvalidController");
 end
 
 function verify_all_errors(test_case, calls, identifier)
