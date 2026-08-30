@@ -45,7 +45,7 @@ end
 axis_handle.ThetaTick = rad2deg(angles(1:end - 1));
 axis_handle.ThetaTickLabel = labels;
 axis_handle.RLim = [0, 1];
-axis_handle.RTick = [0, 0.5, 1];
+axis_handle.RTick = [0.5, 1];
 legend(axis_handle, "Location", "bestoutside", "Box", "off", "Interpreter", "none");
 annotation(figure_handle, "textbox", [0.14, 0.01, 0.52, 0.035], ...
     "String", "Relative comparison: 1 is best", "Interpreter", "none", ...
