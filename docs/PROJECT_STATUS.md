@@ -1,6 +1,6 @@
 # Project status and continuation guide
 
-Updated: 2026-08-30.
+Updated: 2026-08-31.
 
 ## Workspace and version history
 
@@ -17,7 +17,7 @@ Updated: 2026-08-30.
 - Environment preflight and generated LQR, LQI and fuzzy PID Simulink models.
 - Five-controller MATLAB/Simulink equivalence checks, including raw timing and fuzzy gain-log validation. Last reviewed/pushed checkpoint for this part: `880bd67`.
 
-## Current checkpoint: statistics
+## Completed checkpoint: statistics
 
 - Initial implementation: `b6aee0e`.
 - Shared validation/summary refactor and additional error-contract tests: `008d5b2`.
@@ -28,11 +28,20 @@ Updated: 2026-08-30.
 - Statistics use only successful trials for continuous summaries/tests, while success rates and Wilson intervals count every trial. Failed/nonfinite trial metrics are excluded from continuous calculations, not deleted from the experiment data.
 - Statistics review is complete: all findings addressed, no new Critical/Important issues. The seven public statistics functions and two internal helpers are ready for the figure/reporting stages.
 
+## Current checkpoint: publication-oriented figures
+
+- Figure implementation: `d6221a1`; reviewed PDF compatibility fix: `aff47ce`.
+- Six plot families are implemented, with fixed five-controller colors/order and PNG/vector-PDF export: nominal response, saturation response, disturbance recovery, Monte Carlo boxplots, performance comparison, and normalized radar.
+- Full regression at `d6221a1`: **363 passed, 0 failed, 0 incomplete**, captured process exit `0`. Code Analyzer covered all 12 added MATLAB files with **0 findings**.
+- The final change only removes the radar's zero radial tick while retaining the 0-to-1 score range and all numerical data. Its covering figure/statistics run passed **29/29**; Root's independent final figure run passed **8/8**, captured exit `0`, with both changed files Analyzer-clean.
+- Root independently parsed all six normal PDFs and two no-success radar boundary cases: **8/8**, each exit `0` and no parser diagnostics. The initial zero-tick PDF syntax warning is fixed. Normal figure layouts and the final radar renders were inspected visually.
+- Task review and the scoped fix review are complete, with no open Critical/Important findings. A non-blocking final-review candidate remains: make unavailable-controller information more explicit in radar legends/annotations, especially when all controllers have zero successful trials.
+- All current figure previews use synthetic test fixtures. They are validation artifacts, not formal performance results; the real Quick study has not yet been run through the new workflow.
+
 ## Next work
 
-1. Implement Task 7: six paper-oriented figure families, each exported as PNG and PDF, with fixed five-controller order and explicit handling of no-success groups.
-2. Implement Task 8: raw/result exports, reproducibility manifest, `run_control_study` entry point, documentation, and actual default Quick end-to-end validation.
-3. Run final whole-branch review and completion checks. Do not claim the whole study is complete before actual Quick training/evaluation, five accepted equivalence results, expected artifacts, clean analysis/tests, and remote synchronization are verified.
+1. Implement Task 8: raw/result exports, reproducibility manifest, `run_control_study` entry point, documentation, and actual default Quick end-to-end validation.
+2. Run final whole-branch review and completion checks, including ledgered review candidates. Do not claim the whole study is complete before actual Quick training/evaluation, five accepted equivalence results, expected artifacts, clean analysis/tests, and remote synchronization are verified.
 
 ## Continuation sources
 
