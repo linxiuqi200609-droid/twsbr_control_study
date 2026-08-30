@@ -1,0 +1,133 @@
+function [omnibus, pairwise] = run_nonparametric_tests(data, metric_names)
+%RUN_NONPARAMETRIC_TESTS Run successful-trial rank tests by metric.
+
+[controllers, metrics] = validate_inputs(data, metric_names);
+validate_statistics_toolbox();
+[omnibus, pairwise] = calculate_tests(data, controllers, metrics);
+end
+
+function [omnibus, pairwise] = calculate_tests(data, controllers, metrics)
+metric_count = numel(metrics);
+controller_count = numel(controllers);
+pair_count = controller_count * (controller_count - 1) / 2;
+omnibus_metric = strings(metric_count, 1);
+omnibus_group_count = zeros(metric_count, 1);
+omnibus_successful_n = zeros(metric_count, 1);
+omnibus_p_value = nan(metric_count, 1);
+pairwise_metric = strings(metric_count * pair_count, 1);
+first_controller = strings(metric_count * pair_count, 1);
+second_controller = strings(metric_count * pair_count, 1);
+first_n = zeros(metric_count * pair_count, 1);
+second_n = zeros(metric_count * pair_count, 1);
+p_value = nan(metric_count * pair_count, 1);
+p_value_holm = nan(metric_count * pair_count, 1);
+effect_size = nan(metric_count * pair_count, 1);
+pair_row = 0;
+for metric_index = 1:metric_count
+    metric = metrics(metric_index);
+    values = data.(metric);
+    successful_mask = data.success;
+    successful_values = values(successful_mask);
+    successful_controllers = string(data.controller(successful_mask));
+    omnibus_metric(metric_index) = metric;
+    omnibus_group_count(metric_index) = controller_count;
+    omnibus_successful_n(metric_index) = numel(successful_values);
+    active_groups = unique(successful_controllers, "stable");
+    if numel(active_groups) >= 2
+        omnibus_p_value(metric_index) = kruskalwallis( ...
+            successful_values, categorical(successful_controllers), "off");
+    end
+    metric_pair_rows = zeros(pair_count, 1);
+    metric_pair_index = 0;
+    for first_index = 1:(controller_count - 1)
+        for second_index = (first_index + 1):controller_count
+            pair_row = pair_row + 1;
+            metric_pair_index = metric_pair_index + 1;
+            metric_pair_rows(metric_pair_index) = pair_row;
+            first_values = values(data.success & ...
+                string(data.controller) == controllers(first_index));
+            second_values = values(data.success & ...
+                string(data.controller) == controllers(second_index));
+            pairwise_metric(pair_row) = metric;
+            first_controller(pair_row) = controllers(first_index);
+            second_controller(pair_row) = controllers(second_index);
+            first_n(pair_row) = numel(first_values);
+            second_n(pair_row) = numel(second_values);
+            if isempty(first_values) || isempty(second_values)
+                continue
+            end
+            p_value(pair_row) = ranksum(first_values, second_values);
+            effect_size(pair_row) = cliffs_delta(first_values, second_values);
+        end
+    end
+    valid_rows = metric_pair_rows(isfinite(p_value(metric_pair_rows)));
+    if ~isempty(valid_rows)
+        p_value_holm(valid_rows) = holm_adjust(p_value(valid_rows));
+    end
+end
+omnibus = table(omnibus_metric, omnibus_group_count, omnibus_successful_n, ...
+    omnibus_p_value, 'VariableNames', {'metric', 'group_count', ...
+    'successful_n', 'p_value'});
+pairwise = table(pairwise_metric, first_controller, second_controller, ...
+    first_n, second_n, p_value, p_value_holm, effect_size, ...
+    'VariableNames', {'metric', 'first_controller', 'second_controller', ...
+    'first_n', 'second_n', 'p_value', 'p_value_holm', 'cliffs_delta'});
+end
+
+function [controllers, metrics] = validate_inputs(data, metric_names)
+if ~istable(data) || isempty(data) || ~all(ismember( ...
+        ["controller", "success"], string(data.Properties.VariableNames)))
+    error("twsbr:statistics:InvalidData", ...
+        "Data must be a nonempty table with controller and success columns.");
+end
+if ~islogical(data.success) || ~isvector(data.success) || ...
+        numel(data.success) ~= height(data)
+    error("twsbr:statistics:InvalidSuccess", ...
+        "Success must be a logical column aligned with the table.");
+end
+if ~is_text_column(data.controller) || numel(data.controller) ~= height(data)
+    error("twsbr:statistics:InvalidController", ...
+        "Controller must be a nonmissing text column aligned with the table.");
+end
+metrics = validate_metric_names(metric_names);
+for index = 1:numel(metrics)
+    if ~ismember(metrics(index), string(data.Properties.VariableNames))
+        error("twsbr:statistics:MissingMetric", ...
+            "Every requested metric must be a data column.");
+    end
+    values = data.(metrics(index));
+    if ~isnumeric(values) || ~isreal(values) || ~isvector(values) || ...
+            numel(values) ~= height(data)
+        error("twsbr:statistics:InvalidMetric", ...
+            "Each requested metric must be a real numeric table column.");
+    end
+    if any(~isfinite(values(data.success)))
+        error("twsbr:statistics:InvalidMetricValues", ...
+            "Requested metric values must be finite for successful trials.");
+    end
+end
+controllers = unique(string(data.controller), "stable");
+end
+
+function validate_statistics_toolbox()
+if exist("kruskalwallis", "file") ~= 2 || exist("ranksum", "file") ~= 2
+    error("twsbr:statistics:MissingStatisticsToolbox", ...
+        "Kruskal-Wallis and rank-sum functions must be available.");
+end
+end
+
+function metrics = validate_metric_names(value)
+if ~isstring(value) || ~isvector(value) || isempty(value) || ...
+        any(ismissing(value)) || any(strlength(value) == 0)
+    error("twsbr:statistics:InvalidMetricNames", ...
+        "Metric names must be a nonempty string scalar or vector.");
+end
+metrics = value(:);
+end
+
+function valid = is_text_column(value)
+as_text = string(value);
+valid = isvector(value) && numel(value) > 0 && all(~ismissing(as_text)) && ...
+    all(strlength(as_text) > 0) && (isstring(value) || iscellstr(value) || ...
+    iscategorical(value));
+end
