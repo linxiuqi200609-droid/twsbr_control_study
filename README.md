@@ -229,3 +229,70 @@ The automated tests verify:
 ## Scope and deployment limitation
 
 The basic attitude PID deliberately uses only `theta` and `theta_dot`, so position drift remains expected in that workflow. The cascade controller adds software position regulation through `x` and `x_dot`. Both controllers produce an unsaturated command `u_raw`; one shared actuator block applies the limit before the signal enters the plant. These MATLAB and Simulink results are software simulations, not evidence of safe physical deployment. Hardware use still requires sensor processing, actuator calibration, real-time timing validation, safety interlocks, and experimental verification.
+
+## Unified five-controller study
+
+`run_control_study` runs a reproducible comparison of `ATTITUDE_PID`,
+`CASCADE_PID`, `FUZZY_PID`, `LQR`, and `LQI`. The basic attitude PID is
+deliberately the attitude-only baseline: it cannot observe or track position,
+but its position error remains in the common metrics as a limited-capability
+control group. Cascade PID uses position PID plus attitude PD; fuzzy PID uses
+the same outer loop with fixed-rule online inner PID gain adjustment; LQR is
+discrete full-state regulation; and LQI adds position-error integration.
+
+MATLAB with Simulink, Control System Toolbox, and Statistics and Machine
+Learning Toolbox is required for the complete study. Run either planned mode
+from the project root:
+
+```matlab
+summary = run_control_study("quick", true);
+summary = run_control_study("full", true);
+```
+
+The first argument selects frozen study budgets. Quick uses population 24,
+240 DE evaluations per controller, seed 0, and ten paired Monte Carlo cases.
+Full uses population 40, 3200 evaluations per controller, seeds 0 through 9,
+and 200 paired Monte Carlo cases. The default 10-second training and held-out
+durations are intentionally not shortened by Quick mode. All five controllers
+receive the same numerical plant, sampling, saturation, scenarios, objective,
+failure policy, DE evaluation budget, and seed policy. Frozen parameters are
+selected from training data only; held-out deterministic and paired Monte
+Carlo data are never used for tuning or replacement vectors.
+
+For test-only integration checks, an optional third structure may supply
+explicit `frozen_vectors`, an isolated `output_root`, and explicit stage
+switches such as `run_monte_carlo=false` or `run_simulink=false`. This bypass
+is not a valid scientific result: the manifest records the skipped stages and
+the frozen-vector bypass. Normal use should keep the documented two-argument
+calls above.
+
+Each run writes `results/control_study_<mode>/` (or the explicit output root):
+
+```text
+tuning/                 DE runs (MAT/CSV) and frozen-vector JSON
+deterministic/          held-out metrics, parameters, and complexity CSVs
+raw/                    indexed raw deterministic MAT traces
+monte_carlo/            paired all-trial metrics CSV
+simulink_validation/    five-controller equivalence summary CSV
+figures/                F1-F6 PNG and vector-PDF artifacts
+statistics.xlsx         flat raw and summary sheets
+statistics_*.csv        descriptive, omnibus, and pairwise outputs
+training_scenarios.json
+heldout_scenarios.json
+run_manifest.json
+```
+
+The manifest records the effective options, pre-run source-dirty status,
+seed/configuration provenance,
+frozen vectors, Git commit, platform/toolboxes, stage status, and SHA-256
+hashes of `experiment_config.m`, `objective_config.m`, and
+`monte_carlo_config.m`. Rerunning with a stage disabled rewrites the managed
+table outputs as typed empty products and removes only the twelve managed
+figure names, so prior artifacts cannot be misrepresented as current results.
+
+`control_energy` is the integral of squared normalized applied input. It is a
+control-cost proxy, not measured battery or electrical energy. Quick's ten
+Monte Carlo trials check the pipeline and provide exploratory comparisons;
+they are not enough on their own for strong general performance claims. Full
+is the larger planned experiment, but it too is software-only and does not
+demonstrate hardware safety or deployment readiness.

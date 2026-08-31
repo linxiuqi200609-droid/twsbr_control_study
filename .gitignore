@@ -4,3 +4,9 @@ slprj/
 
 # Local Git worktrees
 .worktrees/
+
+# Large local artifacts from full five-controller studies
+results/control_study_full/raw/
+results/control_study_full/tuning/tuning_runs.mat
+results/control_study_full/monte_carlo/intermediate/
+results/control_study_*/.cache/

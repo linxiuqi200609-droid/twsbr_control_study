@@ -22,7 +22,7 @@ function test_root_matlab_files_match_public_entry_point_allowlist(test_case)
 project_root = string(fileparts(fileparts(mfilename("fullpath"))));
 root_files = string({dir(fullfile(project_root, "*.m")).name});
 expected_files = ["run_attitude_pid.m", "run_cascade_pid.m", ...
-    "run_project.m", "setup_project.m"];
+    "run_control_study.m", "run_project.m", "setup_project.m"];
 
 verifyEqual(test_case, sort(root_files), sort(expected_files));
 end
