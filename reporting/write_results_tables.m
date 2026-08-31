@@ -117,7 +117,9 @@ result = table(strings(0,1),strings(0,1),zeros(0,1),nan(0,1),nan(0,1),nan(0,1),n
 end
 
 function result = empty_omnibus_table()
-result = table(strings(0,1),zeros(0,1),zeros(0,1),nan(0,1),'VariableNames',{'metric','group_count','successful_n','p_value'});
+result = table(strings(0,1),zeros(0,1),zeros(0,1),nan(0,1), ...
+    zeros(0,1),zeros(0,1),'VariableNames',{'metric','group_count', ...
+    'successful_n','p_value','configured_group_count','analyzed_group_count'});
 end
 
 function result = empty_pairwise_table()
@@ -235,17 +237,19 @@ widths = zeros(1, width(data));
 names = string(data.Properties.VariableNames);
 for index = 1:width(data)
     values = data.(names(index));
+    lengths = zeros(0, 1);
     if isstring(values) || iscellstr(values) || iscategorical(values)
         lengths = strlength(string(values));
-        widths(index) = min(60, max(12, double(max([strlength(names(index)); ...
-            lengths(:); 0])) + 4));
     end
+    widths(index) = min(60, max(12, double(max([strlength(names(index)); ...
+        lengths(:); 0])) + 4));
 end
 end
 
 function xml = widen_sheet_xml(xml, widths)
 tags = regexp(xml, '<col\s+[^>]*>', 'match');
 for column = find(widths > 0)
+    found = false;
     for tag_index = 1:numel(tags)
         minimum = regexp(tags{tag_index}, 'min="(\d+)"', 'tokens', 'once');
         maximum = regexp(tags{tag_index}, 'max="(\d+)"', 'tokens', 'once');
@@ -263,7 +267,17 @@ for column = find(widths > 0)
             sprintf('width="%.6f"', target_width));
         xml = strrep(xml, tags{tag_index}, replacement);
         tags{tag_index} = replacement;
+        found = true;
         break
+    end
+    if ~found
+        definition = sprintf('<col min="%d" max="%d" width="%.6f" customWidth="1"/>', ...
+            column, column, widths(column));
+        if contains(xml, '</cols>')
+            xml = strrep(xml, '</cols>', [definition, '</cols>']);
+        else
+            xml = regexprep(xml, '<sheetData', ['<cols>', definition, '</cols><sheetData'], 'once');
+        end
     end
 end
 end

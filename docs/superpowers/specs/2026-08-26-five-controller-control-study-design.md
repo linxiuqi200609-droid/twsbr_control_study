@@ -164,6 +164,17 @@ alpha_p, alpha_i, alpha_d       3 variables
 
 The six positive controller gains use log parameterization. Each adjustment ratio is bounded linearly in `[0, 1.5]`. Membership functions, normalization ranges, rule matrices, and gain safety limits are frozen before training.
 
+**Implementation clarification (final-review ruling, 2026-08-31):** The preceding
+positive, pre-training safety-range requirement is retained as the historical
+high-level design. The approved detailed controller plan specifies a different
+policy: online gains are nonnegative and capped at four times each candidate's
+base gain. Those caps are fixed during online execution, not across candidates.
+The MATLAB and Simulink implementations preserve this detailed policy. This is
+a documented design limitation/departure from the stricter wording above, not
+a claim that the two policies are identical. Moving to candidate-independent
+strictly positive bounds requires approved bound values, controller changes,
+new tests and retuning; no such scientific change is made in this fix wave.
+
 ### 5.4 Discrete LQR
 
 The existing continuous analytical `A` and `B` matrices are discretized with zero-order hold at `0.01 s`. The discrete Riccati equation gives the full-state feedback gain `K`.

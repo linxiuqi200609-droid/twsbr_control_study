@@ -20,7 +20,8 @@ end
 state_error = plant_state(:) - [x_reference; 0; 0; 0];
 u_raw = -params.gain * state_error;
 if ~isreal(u_raw) || ~isscalar(u_raw) || ~isfinite(u_raw)
-    invalid_input("The LQR command must be a finite real numeric scalar.");
+    error("twsbr:controller:nonfinite_output", ...
+        "The LQR command must be a finite real numeric scalar.");
 end
 
 control = struct( ...

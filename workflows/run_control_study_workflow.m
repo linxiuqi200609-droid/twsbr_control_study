@@ -306,7 +306,9 @@ end
 
 function omnibus = empty_omnibus_table()
 omnibus = table(strings(0, 1), zeros(0, 1), zeros(0, 1), nan(0, 1), ...
-    'VariableNames', {'metric', 'group_count', 'successful_n', 'p_value'});
+    zeros(0, 1), zeros(0, 1), 'VariableNames', ...
+    {'metric', 'group_count', 'successful_n', 'p_value', ...
+    'configured_group_count', 'analyzed_group_count'});
 end
 
 function pairwise = empty_pairwise_table()
@@ -380,8 +382,8 @@ function dirty = source_is_dirty(project_root)
 [status, output] = system(sprintf( ...
     'git -C "%s" status --porcelain', project_root));
 if status ~= 0
-    error("twsbr:study:git_status_failed", ...
-        "Git status could not be read for the study manifest.");
+    dirty = "unavailable";
+    return
 end
 dirty = strlength(strtrim(string(output))) > 0;
 end

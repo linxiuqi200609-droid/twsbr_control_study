@@ -140,7 +140,8 @@ end
 
 function ensure_finite(value)
 if ~isnumeric(value) || ~isreal(value) || any(~isfinite(value(:)))
-    invalid_input("Fuzzy PID calculations must remain finite and real.");
+    error("twsbr:controller:nonfinite_output", ...
+        "Fuzzy PID calculations must remain finite and real.");
 end
 end
 

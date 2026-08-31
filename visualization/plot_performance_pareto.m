@@ -8,6 +8,7 @@ axis_handle = axes(figure_handle);
 hold(axis_handle, "on");
 unavailable = strings(0, 1);
 energy_medians = zeros(0, 1);
+position_medians = zeros(0, 1);
 for index = 1:numel(controllers)
     rows = monte_carlo.controller == controllers(index);
     successful = rows & monte_carlo.success;
@@ -16,6 +17,7 @@ for index = 1:numel(controllers)
         continue
     end
     position_median = median(monte_carlo.position_itae(successful));
+    position_medians(end + 1, 1) = position_median; %#ok<AGROW>
     energy_median = median(monte_carlo.control_energy(successful));
     energy_medians(end + 1, 1) = energy_median; %#ok<AGROW>
     success_rate = sum(successful) / sum(rows);
@@ -29,13 +31,17 @@ xlabel(axis_handle, "Median position ITAE");
 ylabel(axis_handle, "Median applied-input-squared control-cost proxy");
 grid(axis_handle, "on");
 axis_handle.GridAlpha = 0.25;
-legend(axis_handle, "Location", "best", "Box", "off", "Interpreter", "none");
 if ~isempty(energy_medians)
+    legend(axis_handle, "Location", "best", "Box", "off", "Interpreter", "none");
     margin = max(0.08 * range(energy_medians), 0.05);
     ylim(axis_handle, [min(energy_medians) - margin, max(energy_medians) + margin]);
+    left_margin = max(0.08 * range(position_medians), 0.05);
+    right_margin = max(0.45 * range(position_medians), 0.25);
+    xlim(axis_handle, [min(position_medians) - left_margin, ...
+        max(position_medians) + right_margin]);
 end
 if ~isempty(unavailable)
-    text(axis_handle, 0.02, 0.02, "Unavailable: " + strjoin(unavailable, ", "), ...
-        "Units", "normalized", "VerticalAlignment", "bottom", "FontSize", 8);
+    axis_handle.Position = [0.15, 0.30, 0.80, 0.64];
+    annotate_unavailable_controllers(figure_handle, unavailable, "Unavailable (no successful trials):");
 end
 end

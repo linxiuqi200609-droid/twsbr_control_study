@@ -55,6 +55,12 @@ verifyEqual(test_case, str2double(get_param( ...
 config = experiment_config("quick");
 verifyEqual(test_case, str2double(get_param(model_name, "MaxStep")), ...
     config.plant_step, "AbsTol", 1e-15);
+verifyEqual(test_case, string(get_param(model_name, "SolverType")), "Variable-step");
+verifyEqual(test_case, string(get_param(model_name, "Solver")), "ode45");
+verifyEqual(test_case, str2double(get_param(model_name, "RelTol")), 1e-9);
+verifyEqual(test_case, str2double(get_param(model_name, "AbsTol")), 1e-11);
+verifyEqual(test_case, string(get_param(model_name, "ReturnWorkspaceOutputs")), "on");
+verifyEqual(test_case, str2double(get_param(model_name, "StopTime")), 8);
 
 verifyEqual(test_case, string(get_param( ...
     model_name + "/reference_state", "BlockType")), "Mux");

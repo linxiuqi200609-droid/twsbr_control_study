@@ -12,6 +12,7 @@ controller_count = numel(controllers);
 pair_count = controller_count * (controller_count - 1) / 2;
 omnibus_metric = strings(metric_count, 1);
 omnibus_group_count = zeros(metric_count, 1);
+analyzed_group_count = zeros(metric_count, 1);
 omnibus_successful_n = zeros(metric_count, 1);
 omnibus_p_value = nan(metric_count, 1);
 pairwise_metric = strings(metric_count * pair_count, 1);
@@ -34,6 +35,7 @@ for metric_index = 1:metric_count
     omnibus_group_count(metric_index) = controller_count;
     omnibus_successful_n(metric_index) = numel(successful_values);
     active_groups = unique(successful_controllers, "stable");
+    analyzed_group_count(metric_index) = numel(active_groups);
     if numel(active_groups) >= 2
         omnibus_p_value(metric_index) = kruskalwallis( ...
             successful_values, categorical(successful_controllers), "off");
@@ -69,6 +71,8 @@ end
 omnibus = table(omnibus_metric, omnibus_group_count, omnibus_successful_n, ...
     omnibus_p_value, 'VariableNames', {'metric', 'group_count', ...
     'successful_n', 'p_value'});
+omnibus.configured_group_count = omnibus_group_count;
+omnibus.analyzed_group_count = analyzed_group_count;
 pairwise = table(pairwise_metric, first_controller, second_controller, ...
     first_n, second_n, p_value, p_value_holm, effect_size, ...
     'VariableNames', {'metric', 'first_controller', 'second_controller', ...

@@ -171,6 +171,7 @@ verifyTrue(test_case, ismember("metric", ...
     string(summary.pairwise.Properties.VariableNames)));
 manifest = jsondecode(fileread(summary.manifest_path));
 verifyTrue(test_case, isfield(manifest.context, "source_dirty"));
+verifyTrue(test_case, islogical(manifest.context.source_dirty));
 end
 
 function test_enabled_simulink_rejection_persists_failure_before_error(test_case)
@@ -214,6 +215,33 @@ widths = worksheet_column_widths(paths.statistics_xlsx, 1);
 verifyGreaterThanOrEqual(test_case, widths(1), 14);
 verifyGreaterThanOrEqual(test_case, widths(2), 26);
 verifyEqual(test_case, workbook_sheet_count(paths.statistics_xlsx), 11);
+end
+
+function test_header_only_workbook_has_widths_for_numeric_headers_and_readback(test_case)
+root = string(tempname);
+mkdir(root);
+cleanup = onCleanup(@() rmdir(root, "s"));
+data = table(strings(0,1), zeros(0,1), 'VariableNames', ...
+    {'controller', 'controller_completed_count'});
+paths = write_results_tables(root, data, data, data, data, data, data);
+widths = worksheet_column_widths(paths.statistics_xlsx, 1);
+verifyEqual(test_case, numel(widths), 2);
+if numel(widths) == 2
+    verifyGreaterThanOrEqual(test_case, widths(1), 14);
+    verifyGreaterThanOrEqual(test_case, widths(2), 30);
+end
+readback = readtable(paths.statistics_xlsx, "Sheet", "deterministic_raw");
+verifyEmpty(test_case, readback);
+verifyEqual(test_case, readback.Properties.VariableNames, data.Properties.VariableNames);
+
+data = table("LQR", 0.123456789012345, NaN, 'VariableNames', ...
+    {'controller', 'controller_runtime_seconds', 'mean_step_runtime_us'});
+paths = write_results_tables(root, data, data, data, data, data, data);
+readback = readtable(paths.statistics_xlsx, "Sheet", "deterministic_raw");
+verifyEqual(test_case, readback.controller_runtime_seconds, data.controller_runtime_seconds);
+verifyTrue(test_case, isnan(readback.mean_step_runtime_us));
+widths = worksheet_column_widths(paths.statistics_xlsx, 1);
+verifyGreaterThanOrEqual(test_case, widths(2), 30);
 end
 
 function [data, raw, vectors, validation] = synthetic_reporting_inputs()

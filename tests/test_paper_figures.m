@@ -86,7 +86,8 @@ verifyEqual(test_case, numel(axes_handles), 4);
 verifyEqual(test_case, string(axes_handles(1).TickLabelInterpreter), "none");
 box_handles = findall(axes_handles(1), "Type", "BoxChart");
 verifyTrue(test_case, all(~isinf([box_handles.YData])));
-verifyTrue(test_case, any_text_contains(figure_handle, "No successful trials: LQI"));
+verifyTrue(test_case, any_text_contains(figure_handle, "No successful trials:"));
+verifyTrue(test_case, any_text_contains(figure_handle, "LQI"));
 delete(cleanup)
 end
 
@@ -109,7 +110,8 @@ scatter_handles = flipud(findall(figure_handle, "Type", "scatter"));
 verifyEqual(test_case, numel(scatter_handles), 4);
 verifyEqual(test_case, scatter_handles(4).SizeData, 60 + 160 * (3 / 4));
 verifyFalse(test_case, any(string({scatter_handles.DisplayName}) == "LQI"));
-verifyTrue(test_case, any_text_contains(figure_handle, "Unavailable: LQI"));
+verifyTrue(test_case, any_text_contains(figure_handle, "Unavailable (no successful trials):"));
+verifyTrue(test_case, any_text_contains(figure_handle, "LQI"));
 axis_handle = findall(figure_handle, "Type", "axes");
 verifyLessThan(test_case, axis_handle.YLim(1), 0.4);
 verifyGreaterThan(test_case, axis_handle.YLim(2), 2.1);
@@ -158,6 +160,72 @@ verifyError(test_case, @() plot_performance_pareto(bad_success), "twsbr:figures:
 bad_metric = monte_carlo;
 bad_metric.position_itae(1) = nan;
 verifyError(test_case, @() plot_monte_carlo_boxplots(bad_metric), "twsbr:figures:InvalidMonteCarlo");
+end
+
+function test_missing_controllers_are_named_literally_in_all_comparison_figures(test_case)
+[~, data] = synthetic_figure_inputs();
+data.success(data.controller == "ATTITUDE_PID") = false;
+verify_missing_figures(test_case, data, "ATTITUDE_PID", 4);
+end
+
+function test_all_missing_comparison_figures_are_readable_without_scores(test_case)
+[~, data] = synthetic_figure_inputs();
+data.success(:) = false;
+verify_missing_figures(test_case, data, unique(data.controller, "stable"), 0);
+end
+
+function test_boxplot_control_cost_label_wraps_to_avoid_category_tick_overlap(test_case)
+[~, data] = synthetic_figure_inputs();
+data.success(1:3) = false;
+figure_handle = plot_monte_carlo_boxplots(data);
+cleanup = onCleanup(@() close_if_valid(figure_handle));
+axes_handles = findall(figure_handle, "Type", "axes");
+for axis_handle = axes_handles(:).'
+    label = string(axis_handle.YLabel.String);
+    if any(contains(label, "control-cost proxy"))
+        verifyTrue(test_case, numel(label) >= 2 || contains(label, newline));
+    end
+end
+delete(cleanup)
+end
+
+function verify_missing_figures(test_case, data, missing, expected_series)
+functions = {@plot_monte_carlo_boxplots, @plot_performance_pareto, @plot_normalized_radar};
+for index = 1:numel(functions)
+    figure_handle = functions{index}(data);
+    cleanup = onCleanup(@() close_if_valid(figure_handle));
+    labels = [findall(figure_handle, "Type", "text"); ...
+        findall(figure_handle, "Type", "textboxshape")];
+    text_values = strings(0,1);
+    for label_index = 1:numel(labels)
+        value = string(labels(label_index).String);
+        text_values = [text_values; value(:)]; %#ok<AGROW>
+        if any(contains(value, missing))
+            verifyEqual(test_case, string(labels(label_index).Interpreter), "none");
+        end
+    end
+    for name = missing(:).'
+        verifyTrue(test_case, any(contains(text_values, name)), name);
+    end
+    if index == 1
+        axes_handles = findall(figure_handle, "Type", "axes");
+        for axis_handle = axes_handles(:).'
+            verifyEqual(test_case, axis_handle.XTick, 1:5);
+            verifyLessThan(test_case, axis_handle.XLim(1), 1);
+            verifyGreaterThan(test_case, axis_handle.XLim(2), 5);
+        end
+    elseif index == 2
+        points = findall(figure_handle, "Type", "scatter");
+        verifyEqual(test_case, numel(points), expected_series);
+        axis_handle = findall(figure_handle, "Type", "axes");
+        if ~isempty(points)
+            verifyGreaterThan(test_case, axis_handle.XLim(2), max([points.XData]));
+        end
+    else
+        verifyEqual(test_case, numel(findall(figure_handle, "Type", "line")), expected_series);
+    end
+    delete(cleanup)
+end
 end
 
 function test_generator_closes_only_its_own_figures_when_later_input_fails(test_case)
@@ -221,6 +289,7 @@ end
 end
 
 function matches = any_text_contains(figure_handle, expected)
-text_handles = findall(figure_handle, "Type", "text");
-matches = any(arrayfun(@(handle) contains(string(handle.String), expected), text_handles));
+text_handles = [findall(figure_handle, "Type", "text"); ...
+    findall(figure_handle, "Type", "textboxshape")];
+matches = any(arrayfun(@(handle) any(contains(string(handle.String), expected)), text_handles));
 end

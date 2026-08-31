@@ -322,6 +322,26 @@ verifyTrue(test_case, all(isnan(pairwise.p_value)) && ...
     all(isnan(pairwise.p_value_holm)) && all(isnan(pairwise.cliffs_delta)));
 end
 
+function test_omnibus_distinguishes_configured_and_analyzed_groups(test_case)
+data = table(["A";"A";"B";"B";"C";"C"], false(6,1), ...
+    [1;2;4;5;7;8], 'VariableNames', {'controller','success','metric'});
+for active_count = 0:3
+    data.success = (1:6).' <= 2 * active_count;
+    [omnibus, ~] = run_nonparametric_tests(data, "metric");
+    verifyEqual(test_case, omnibus.group_count, 3);
+    verifyEqual(test_case, omnibus.configured_group_count, 3);
+    verifyEqual(test_case, omnibus.analyzed_group_count, active_count);
+    verifyEqual(test_case, omnibus.successful_n, 2 * active_count);
+    if active_count < 2
+        verifyTrue(test_case, isnan(omnibus.p_value));
+    else
+        expected = kruskalwallis(data.metric(data.success), ...
+            categorical(data.controller(data.success)), "off");
+        verifyEqual(test_case, omnibus.p_value, expected);
+    end
+end
+end
+
 function test_summary_and_test_input_errors_are_stable(test_case)
 data = synthetic_data();
 verifyError(test_case, @() summarize_monte_carlo_results(data, "missing", 10, 1), ...

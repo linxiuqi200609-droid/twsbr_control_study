@@ -31,6 +31,11 @@ end
 figure_handle = figure("Visible", "off", "Tag", "twsbrPaperFigure", ...
     "Name", "Normalized radar", "Color", "w");
 axis_handle = polaraxes(figure_handle);
+unavailable = controllers(all(isnan(normalized), 2));
+if ~isempty(unavailable)
+    axis_handle.Position = [0.12, 0.32, 0.60, 0.57];
+    annotate_unavailable_controllers(figure_handle, unavailable, "Unavailable (no successful trials):");
+end
 hold(axis_handle, "on");
 angles = linspace(0, 2 * pi, numel(metrics) + 1);
 for controller_index = 1:numel(controllers)
@@ -46,8 +51,11 @@ axis_handle.ThetaTick = rad2deg(angles(1:end - 1));
 axis_handle.ThetaTickLabel = labels;
 axis_handle.RLim = [0, 1];
 axis_handle.RTick = [0.5, 1];
-legend(axis_handle, "Location", "bestoutside", "Box", "off", "Interpreter", "none");
-annotation(figure_handle, "textbox", [0.14, 0.01, 0.52, 0.035], ...
+if numel(unavailable) < numel(controllers)
+    legend(axis_handle, "Location", "bestoutside", "Box", "off", "Interpreter", "none");
+end
+note_bottom = 0.01 + 0.17 * ~isempty(unavailable);
+annotation(figure_handle, "textbox", [0.14, note_bottom, 0.70, 0.05], ...
     "String", "Relative comparison: 1 is best", "Interpreter", "none", ...
     "EdgeColor", "none", "HorizontalAlignment", "center", "FontSize", 8);
 end

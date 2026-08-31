@@ -4,12 +4,16 @@ monte_carlo = validate_figure_monte_carlo(monte_carlo);
 [controllers, colors] = figure_controller_style();
 metrics = ["position_itae", "theta_rms_deg", "control_energy", "saturation_ratio"];
 labels = ["Position ITAE", "Tilt RMS (deg)", ...
-    "Applied-input-squared control-cost proxy", "Saturation ratio"];
+    "Applied-input-squared" + newline + "control-cost proxy", "Saturation ratio"];
 figure_handle = figure("Visible", "off", "Tag", "twsbrPaperFigure", ...
     "Name", "Monte Carlo boxplots", "Color", "w");
 layout = tiledlayout(figure_handle, 2, 2, "TileSpacing", "compact", "Padding", "compact");
 unavailable = controllers(~arrayfun(@(controller) any(monte_carlo.success & ...
     monte_carlo.controller == controller), controllers));
+if ~isempty(unavailable)
+    layout.OuterPosition = [0, 0.18, 1, 0.82];
+    annotate_unavailable_controllers(figure_handle, unavailable, "No successful trials:");
+end
 for metric_index = 1:numel(metrics)
     axis_handle = nexttile(layout);
     hold(axis_handle, "on");
@@ -23,15 +27,12 @@ for metric_index = 1:numel(metrics)
         end
     end
     axis_handle.XTick = 1:numel(controllers);
+    axis_handle.XLim = [0.5, numel(controllers) + 0.5];
     axis_handle.XTickLabel = controllers;
     axis_handle.TickLabelInterpreter = "none";
     axis_handle.XTickLabelRotation = 25;
     ylabel(axis_handle, labels(metric_index));
     grid(axis_handle, "on");
     axis_handle.GridAlpha = 0.25;
-    if ~isempty(unavailable)
-        text(axis_handle, 0.02, 0.96, "No successful trials: " + strjoin(unavailable, ", "), ...
-            "Units", "normalized", "VerticalAlignment", "top", "FontSize", 8);
-    end
 end
 end

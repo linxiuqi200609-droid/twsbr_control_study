@@ -23,15 +23,6 @@ if ~strcmpi(normalize_path(project_root), normalize_path(expected_root))
         "project_root must identify this study repository.");
 end
 
-[git_status, repository_root] = system(sprintf( ...
-    'git -C "%s" rev-parse --show-toplevel', project_root));
-is_repository = git_status == 0 && strcmpi( ...
-    normalize_path(repository_root), normalize_path(project_root));
-if ~is_repository
-    error("twsbr:environment:invalid_project_root", ...
-        "project_root must identify this Git repository.");
-end
-
 simulink_available = ~isempty(ver("simulink"));
 control_available = ~isempty(ver("control"));
 statistics_available = ~isempty(ver("stats"));

@@ -1,6 +1,6 @@
 # Two Wheeled Self Balancing Robot Control Project
 
-This project provides matching MATLAB and Simulink models of the longitudinal dynamics of a two wheeled self balancing robot. It includes an open-loop nonlinear plant, a discrete basic attitude PID, and a cascade PID that regulates wheel position through an outer position loop and an inner attitude loop. The plant is an equivalent nonlinear cart pole model for software simulation and control verification.
+This project provides matching MATLAB and Simulink models of the longitudinal dynamics of a two wheeled self balancing robot. It preserves the open-loop plant, basic attitude PID and cascade PID workflows and adds a unified five-controller study with fuzzy cascade PID, LQR and LQI. The plant is an equivalent nonlinear cart pole model for software simulation and control verification.
 
 ## Project structure
 
@@ -12,6 +12,12 @@ srtp/
 |-- run_project.m
 |-- run_attitude_pid.m
 |-- run_cascade_pid.m
+|-- run_control_study.m
+|-- config/
+|-- optimization/
+|-- experiments/
+|-- evaluation/
+|-- reporting/
 |-- models/
 |   |-- twsbr_params.m
 |   |-- twsbr_dynamics.m
@@ -52,7 +58,7 @@ srtp/
 `-- docs/
 ```
 
-The four stable public entry points are `setup_project.m`, `run_project.m`, `run_attitude_pid.m`, and `run_cascade_pid.m`. setup_project.m uses an explicit allowlist: it adds only `models`, `controllers`, `simulation`, `scenarios`, `builders`, `visualization`, and `workflows`. It never uses unrestricted `genpath`, and it excludes builder-private code, tests, results, generated models, documentation, and caches.
+The five stable public root entry points are `setup_project.m`, `run_project.m`, `run_attitude_pid.m`, `run_cascade_pid.m`, and `run_control_study.m`. The tree above shows selected files. setup_project.m uses an explicit allowlist: `models`, `controllers`, `simulation`, `scenarios`, `builders`, `visualization`, `workflows`, `config`, `optimization`, `experiments`, `evaluation`, and `reporting`. It never uses unrestricted `genpath`, and excludes private helpers, tests, results, generated models, documentation, and caches.
 
 ## State and inputs
 
@@ -257,7 +263,12 @@ durations are intentionally not shortened by Quick mode. All five controllers
 receive the same numerical plant, sampling, saturation, scenarios, objective,
 failure policy, DE evaluation budget, and seed policy. Frozen parameters are
 selected from training data only; held-out deterministic and paired Monte
-Carlo data are never used for tuning or replacement vectors.
+Carlo data are never used for tuning or replacement vectors. Monte Carlo
+perturbs only the physical plant: LQR/LQI feedback gains are decoded from the
+same nominal plant for every trial. `simulate_control_system` accepts an
+optional seventh nominal-design-plant argument; six-argument calls continue
+to use their supplied plant for both design and physics. Raw results include
+the decoded `controller_parameters` used for that run.
 
 For test-only integration checks, an optional third structure may supply
 explicit `frozen_vectors`, an isolated `output_root`, and explicit stage
@@ -289,6 +300,43 @@ hashes of `experiment_config.m`, `objective_config.m`, and
 `monte_carlo_config.m`. Rerunning with a stage disabled rewrites the managed
 table outputs as typed empty products and removes only the twelve managed
 figure names, so prior artifacts cannot be misrepresented as current results.
+
+Git is optional provenance, not a simulation prerequisite. The validator
+identifies the source root independently of Git. When Git metadata cannot be
+read, `git_commit` and/or `context.source_dirty` are `"unavailable"`; dirty
+status is a Boolean only when Git status was successfully observed.
+
+Per-trial `simulation_runtime_seconds` preserves total simulator walltime
+(`runtime_seconds` in raw MAT results). `controller_runtime_seconds` times
+only `controller_step` plus `controller_after_actuation`, excluding controller
+construction/reset, actuator clipping, validation outside these calls,
+plant integration and logging. `controller_evaluation_count` counts attempted
+lifecycles; `controller_completed_count` counts those completing both calls.
+A failed attempt contributes its elapsed time and attempted count.
+`mean_step_runtime_us` is controller time divided by attempted evaluations,
+not by plant samples. It is `NaN` (missing) for zero attempts, with zero
+controller time; failed rows remain in MAT/CSV/XLSX output. Runtime variation
+is excluded from deterministic training-objective details.
+
+Omnibus statistics report `configured_group_count` (all controller groups
+present in the input) and `analyzed_group_count` (groups with successful rows).
+The backward-compatible `group_count` remains the configured count;
+`successful_n` counts analyzed observations. Kruskal-Wallis uses only successful
+groups and returns a missing p-value when fewer than two groups are available.
+F4-F6 explicitly name controllers without successful trials and do not invent
+scores or replacement successes.
+
+### Fuzzy gain policy: implementation clarification
+
+The historical design spec asks for fixed positive safety ranges frozen before
+training. The approved detailed controller plan instead specifies nonnegative
+online gains, clipped to `[0, 4 * candidate_base_gain]`; these bounds stay fixed
+during each candidate's online execution but vary between trained candidates.
+The implementation follows that detailed policy. This is an explicit departure
+from candidate-independent, strictly positive caps, not literal compliance with
+the stricter high-level wording. The final-review ruling preserves the numeric
+and Simulink laws. Adopting global positive caps later requires approved cap
+values, matching controller changes, new tests and retuning.
 
 `control_energy` is the integral of squared normalized applied input. It is a
 control-cost proxy, not measured battery or electrical energy. Quick's ten

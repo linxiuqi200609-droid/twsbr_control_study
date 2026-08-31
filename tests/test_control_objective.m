@@ -101,6 +101,7 @@ for scenario_index = 1:3
         "controller_runtime_seconds"));
     verifyFalse(test_case, isfield(detail.metrics, ...
         "mean_step_runtime_us"));
+    verifyFalse(test_case, isfield(detail.metrics, "simulation_runtime_seconds"));
 end
 
 verifyTrue(test_case, has_failure);

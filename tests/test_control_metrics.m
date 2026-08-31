@@ -26,7 +26,8 @@ expected_fields = ["controller"; "scenario"; "split"; "seed"; ...
     "position_settling_time"; "position_overshoot"; ...
     "position_drift"; "control_energy"; "saturation_time"; ...
     "saturation_ratio"; "disturbance_recovery_time"; ...
-    "controller_runtime_seconds"; "mean_step_runtime_us"];
+    "controller_runtime_seconds"; "mean_step_runtime_us"; ...
+    "simulation_runtime_seconds"; "controller_evaluation_count"; "controller_completed_count"];
 
 verifyTrue(test_case, isscalar(metrics) && isstruct(metrics));
 verifyEqual(test_case, string(fieldnames(metrics)), expected_fields);
@@ -46,7 +47,7 @@ verifyEqual(test_case, metrics.theta_rms_deg, ...
     rad2deg(0.1 / sqrt(3)), "AbsTol", 1e-12);
 verifyEqual(test_case, metrics.saturation_time, 0.5, "AbsTol", 1e-12);
 verifyEqual(test_case, metrics.saturation_ratio, 1 / 3, "AbsTol", 1e-12);
-verifyEqual(test_case, metrics.controller_runtime_seconds, 0.003);
+verifyEqual(test_case, metrics.controller_runtime_seconds, 0.002);
 verifyEqual(test_case, metrics.mean_step_runtime_us, 1000);
 verify_finite_numeric_metrics(test_case, metrics);
 end
@@ -132,6 +133,9 @@ simulation.success = false;
 simulation.failure_reason = "nonfinite_control";
 simulation.survived_time = 0.0;
 simulation.runtime_seconds = 0.002;
+simulation.controller_runtime_seconds = 0.002;
+simulation.controller_evaluation_count = 1;
+simulation.controller_completed_count = 0;
 scenario = metric_scenario("empty_failure", 2.0);
 scenario.x_reference = @(~) 0.75;
 
@@ -308,6 +312,9 @@ simulation.success = false;
 simulation.failure_reason = "nonfinite_control";
 simulation.survived_time = 0.0;
 simulation.runtime_seconds = 0.0;
+simulation.controller_runtime_seconds = 0.0;
+simulation.controller_evaluation_count = 0;
+simulation.controller_completed_count = 0;
 end
 
 function simulation = simple_simulation()
@@ -325,6 +332,9 @@ simulation.success = true;
 simulation.failure_reason = "";
 simulation.survived_time = 2;
 simulation.runtime_seconds = 0.003;
+simulation.controller_runtime_seconds = 0.002;
+simulation.controller_evaluation_count = 2;
+simulation.controller_completed_count = 2;
 end
 
 function simulation = make_unsettled_successful_simulation()
@@ -344,6 +354,9 @@ simulation.success = true;
 simulation.failure_reason = "";
 simulation.survived_time = 1.0;
 simulation.runtime_seconds = 0.001;
+simulation.controller_runtime_seconds = 0.0005;
+simulation.controller_evaluation_count = 11;
+simulation.controller_completed_count = 11;
 end
 
 function scenario = metric_scenario(name, duration)

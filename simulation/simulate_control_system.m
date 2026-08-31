@@ -1,9 +1,13 @@
 function simulation = simulate_control_system(controller_name, vector, ...
-        plant_params, config, scenario, seed)
+        plant_params, config, scenario, seed, design_plant_params)
 %SIMULATE_CONTROL_SYSTEM Run a controller against the fixed-step plant.
 
 runtime_start = tic;
+if nargin < 7
+    design_plant_params = plant_params;
+end
 validate_inputs(plant_params, config, scenario, seed);
+validate_plant_params(design_plant_params);
 
 plant_step = config.plant_step;
 controller_step_ratio = round(config.sample_time / plant_step);
@@ -32,7 +36,10 @@ zero_noise = scenario.measurement_noise_std == 0;
 measurement_noise(:, zero_noise) = 0;
 
 controller = reset_controller(create_controller( ...
-    controller_name, vector, plant_params, config));
+    controller_name, vector, design_plant_params, config));
+controller_runtime_seconds = 0.0;
+controller_evaluation_count = 0;
+controller_completed_count = 0;
 held_control = struct();
 held_u = 0.0;
 held_saturated = false;
@@ -63,10 +70,13 @@ for index = 1:sample_count
             failure_reason = "nonfinite_state";
             break
         end
+        controller_evaluation_count = controller_evaluation_count + 1;
+        lifecycle_start = tic;
         try
             [next_control, controller] = controller_step(controller, ...
                 current_time, measured_state, reference);
         catch exception
+            controller_runtime_seconds = controller_runtime_seconds + toc(lifecycle_start);
             if strcmp(exception.identifier, ...
                     "twsbr:controller:nonfinite_output")
                 success = false;
@@ -75,6 +85,7 @@ for index = 1:sample_count
             end
             rethrow(exception);
         end
+        controller_runtime_seconds = controller_runtime_seconds + toc(lifecycle_start);
         validate_control_contract(next_control);
         if ~isfinite(next_control.u_raw) || ...
                 ~isfinite(next_control.theta_reference)
@@ -86,8 +97,21 @@ for index = 1:sample_count
         held_u = min(max(held_control.u_raw, -plant_params.u_max), ...
             plant_params.u_max);
         held_saturated = abs(held_control.u_raw) > plant_params.u_max;
-        controller = controller_after_actuation( ...
-            controller, held_control.u_raw, held_u);
+        lifecycle_start = tic;
+        try
+            controller = controller_after_actuation( ...
+                controller, held_control.u_raw, held_u);
+        catch exception
+            controller_runtime_seconds = controller_runtime_seconds + toc(lifecycle_start);
+            if strcmp(exception.identifier, "twsbr:controller:nonfinite_output")
+                success = false;
+                failure_reason = "nonfinite_control";
+                break
+            end
+            rethrow(exception);
+        end
+        controller_runtime_seconds = controller_runtime_seconds + toc(lifecycle_start);
+        controller_completed_count = controller_completed_count + 1;
     end
 
     position_reference(index) = reference;
@@ -180,6 +204,10 @@ simulation.success = success;
 simulation.failure_reason = failure_reason;
 simulation.survived_time = survived_time;
 simulation.runtime_seconds = toc(runtime_start);
+simulation.controller_runtime_seconds = controller_runtime_seconds;
+simulation.controller_evaluation_count = controller_evaluation_count;
+simulation.controller_completed_count = controller_completed_count;
+simulation.controller_parameters = controller.params;
 end
 
 function validate_inputs(plant_params, config, scenario, seed)
