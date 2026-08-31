@@ -1,4 +1,20 @@
-# Default Quick study results
+# Diagnostic default Quick study results
+
+**Diagnostic run — not valid for a final fair robustness comparison.**
+The final branch review found that Monte Carlo simulation recalculates LQR/LQI
+gains using each perturbed plant, instead of holding nominal-model gains fixed.
+The numerical results below remain the exact historical output of this run,
+but the robustness comparison must be rerun after that implementation defect
+is fixed. Do not use these numbers for controller superiority claims.
+The same review found that per-trial controller-runtime columns include total
+simulation walltime and use the plant-sample denominator; those columns are
+also diagnostic only. The separate lifecycle benchmark uses a different,
+correctly scoped timing path.
+
+The source corrections are now committed as `311a581` and passed a 395-test
+full regression plus analysis of 164 MATLAB files (zero findings). This does
+not reclassify the historical data below: independent final checks and a new
+default Quick run must pass before accepted results replace this document.
 
 Run date: 2026-08-31. MATLAB R2026a, Windows 64-bit.
 Source: `b20c382725f122ef7cc36b4f0d5448b358b61d0e` (clean before the run).
@@ -52,8 +68,9 @@ The complete run is under `results/control_study_quick/`:
 
 All trial counts, parameter exports, configuration hashes, and raw paths were
 independently reconciled. Every workbook sheet was visually inspected and all
-six PDFs parsed without diagnostics. Final whole-branch review is still pending
-for presentation details and previously ledgered metadata/documentation issues.
+six PDFs parsed without diagnostics. The final whole-branch review is now
+complete and requires corrections before a new accepted default Quick run.
+The original numerical artifacts remain recoverable in Git commit `8a14d7b`.
 
 This is a software-only experiment. Full-budget study execution and physical
 hardware validation have not been performed by this Quick run.
