@@ -38,20 +38,23 @@ Updated: 2026-08-31.
 - Task review and the scoped fix review are complete, with no open Critical/Important findings. A non-blocking final-review candidate remains: make unavailable-controller information more explicit in radar legends/annotations, especially when all controllers have zero successful trials.
 - All current figure previews use synthetic test fixtures. They are validation artifacts, not formal performance results; the real Quick study has not yet been run through the new workflow.
 
-## In progress: unified workflow and reporting
+## Completed: unified workflow and default Quick run
 
 - Task8 source committed locally as `3f18496` after resume on 2026-08-31; not yet pushed. The unified entry point, export helpers, mapping documentation, and output tests are present.
 - Root independently verified this source: **375/375 tests passed**, no failed/incomplete tests; Code Analyzer covered **159 tracked MATLAB files with 0 findings**, captured process exit `0`. Persistent post-assertion marker: `TASK8_ROOT_VERIFICATION_OK tests=375 files=159 findings=0`. Test-generated legacy binaries were restored by exact path.
 - The focused output suite passed **12/12**. Root imported, rendered, and viewed all eleven sheets of both synthetic reporter and frozen/disabled workflow previews. Populated text widths, numeric parameter vectors, and header-only empty data schemas were verified; no spreadsheet error cells were found. These are export/integration checks, not the formal Quick experiment.
 - Initial task review found one Important gap: rejected Simulink comparisons still allowed successful return. Fix `3d886b1` now persists the failed evidence and accurate stage metadata, then raises `twsbr:study:simulink_validation_failed` unless the five comparisons are accepted. Its 13-test output suite and root-entry compatibility test passed. Scoped re-review is complete with no open Important findings or new breakage.
 - Root's latest independent verification on `3d886b1` passed **376/376 tests**, no failed/incomplete tests; **159 tracked MATLAB files, 0 Analyzer findings**, captured process exit `0`. Evidence: `task-8-root-r1-full-verification.log`, final marker `TASK8_ROOT_VERIFICATION_OK tests=376 files=159 findings=0`. A Minor display issue remains for final review: long headers clip in empty XLSX sheets that have no native column-width records.
-- Root owns final integration/default Quick executions and independent artifact review. The actual default Quick experiment has not yet run; no formal results are claimed. The earlier usage interruption preserved all files, and no usage-reset credits were consumed.
+- The actual default Quick run completed from clean source `b20c382`, with captured exit `0`: five controllers each used population24/evaluation budget240/seed0; training/test/MC durations stayed10seconds;60 deterministic and50 Monte Carlo rows were retained;5/5 Simulink comparisons passed;12 figures were generated. No frozen-vector/reduced/skipped-stage overrides were used. All configuration hashes, parameter exports, raw-index paths and stage metadata passed independent reconciliation. Manifest pre-run `source_dirty=false`.
+- Root imported and visually inspected all11 actual workbook sheets and relevant extra columns; zero spreadsheet error cells. All6 actual PDFs parsed with exit0 and empty diagnostics and were viewed. Remaining final-review candidates concern unavailable-controller annotations, edge-label margins, the omnibus group-count definition, and earlier documented minor items.
+- Actual Quick success counts: attitude PID3/12 held-out and0/10 Monte Carlo; the other four controllers each12/12 and10/10. All19 failed baseline rows remain recorded as `task_not_settled`. See `docs/QUICK_STUDY_RESULTS.md`; no Full-study or hardware result is claimed.
+- Sixty compact Quick raw traces (26.7MB total, maximum0.804MB per file) are selected for versioning by validated index paths so the saved raw index stays usable after clone. A separate1.42GB debugging snapshot and large Full artifacts remain local/ignored. The earlier usage interruption preserved all files, and no usage-reset credits were consumed.
 - Local continuation records include `task-8-report.md`, `task-8-root-qa.md`, and persistent `task-8-*.log` files under the active plan's ignored SDD directory. The latest log/report and Git state take precedence over these checkpoint counts as work progresses.
 
 ## Next work
 
-1. Finish and review Task 8: resolve QA findings, verify all tests/analysis, and run actual default Quick end-to-end validation without reduced or skipped stages.
-2. Run final whole-branch review and completion checks, including ledgered review candidates. Do not claim the whole study is complete before actual Quick training/evaluation, five accepted equivalence results, expected artifacts, clean analysis/tests, and remote synchronization are verified.
+1. Commit the verified Quick artifacts and run final whole-branch review, including every ledgered review candidate. Task8 implementation and actual defaultQuick gates are complete.
+2. Resolve final review findings, perform covering verification, then push only the existing authorized branch and verify local/upstream/live remote equality. Do not claim final completion before this review and synchronization.
 
 ## Continuation sources
 

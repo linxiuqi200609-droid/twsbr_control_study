@@ -1,0 +1,6 @@
+controller,scenario,max_tilt_difference_deg,max_position_difference_m,max_applied_input_difference,tilt_tolerance_deg,position_tolerance_m,input_tolerance,max_fuzzy_gain_relative_error,fuzzy_gain_accepted,accepted
+ATTITUDE_PID,T1_initial_tilt_5deg,4.92613146602016e-05,2.71090512494376e-07,4.53909123621088e-08,0.2,0.01,0.02,NaN,1,1
+CASCADE_PID,T2_position_step_0p5m,1.07785022461447e-10,2.76328265824688e-12,6.88152868022485e-11,0.2,0.01,0.02,NaN,1,1
+FUZZY_PID,T2_position_step_0p5m,3.48305723721751e-10,4.59678128894581e-12,1.12662101869887e-10,0.2,0.01,0.02,3.41697869414266e-11,1,1
+LQR,T2_position_step_0p5m,4.88966549648146e-11,1.89984139531418e-12,1.397406634851e-10,0.2,0.01,0.02,NaN,1,1
+LQI,T2_position_step_0p5m,1.90745815634071e-11,5.81492319573496e-13,7.33135774311222e-12,0.2,0.01,0.02,NaN,1,1

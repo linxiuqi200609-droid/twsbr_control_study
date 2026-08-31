@@ -1,0 +1,326 @@
+{
+  "S1_initial_tilt_3deg": {
+    "name": "S1_initial_tilt_3deg",
+    "split": "test",
+    "duration": 10,
+    "initial_state": [
+      0,
+      0,
+      0.05235987755982989,
+      0
+    ],
+    "reference_start": 0,
+    "disturbance_end": 0,
+    "measurement_noise_std": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "reference_amplitude": 0,
+    "force_amplitude": 0,
+    "force_start": 0,
+    "force_duration": 0,
+    "torque_amplitude": 0,
+    "torque_start": 0,
+    "torque_duration": 0,
+    "constant_force": 0
+  },
+  "S1_initial_tilt_6deg": {
+    "name": "S1_initial_tilt_6deg",
+    "split": "test",
+    "duration": 10,
+    "initial_state": [
+      0,
+      0,
+      0.10471975511965978,
+      0
+    ],
+    "reference_start": 0,
+    "disturbance_end": 0,
+    "measurement_noise_std": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "reference_amplitude": 0,
+    "force_amplitude": 0,
+    "force_start": 0,
+    "force_duration": 0,
+    "torque_amplitude": 0,
+    "torque_start": 0,
+    "torque_duration": 0,
+    "constant_force": 0
+  },
+  "S1_initial_tilt_9deg": {
+    "name": "S1_initial_tilt_9deg",
+    "split": "test",
+    "duration": 10,
+    "initial_state": [
+      0,
+      0,
+      0.15707963267948966,
+      0
+    ],
+    "reference_start": 0,
+    "disturbance_end": 0,
+    "measurement_noise_std": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "reference_amplitude": 0,
+    "force_amplitude": 0,
+    "force_start": 0,
+    "force_duration": 0,
+    "torque_amplitude": 0,
+    "torque_start": 0,
+    "torque_duration": 0,
+    "constant_force": 0
+  },
+  "S1_initial_tilt_12deg": {
+    "name": "S1_initial_tilt_12deg",
+    "split": "test",
+    "duration": 10,
+    "initial_state": [
+      0,
+      0,
+      0.20943951023931956,
+      0
+    ],
+    "reference_start": 0,
+    "disturbance_end": 0,
+    "measurement_noise_std": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "reference_amplitude": 0,
+    "force_amplitude": 0,
+    "force_start": 0,
+    "force_duration": 0,
+    "torque_amplitude": 0,
+    "torque_start": 0,
+    "torque_duration": 0,
+    "constant_force": 0
+  },
+  "S2_position_step_0p25m": {
+    "name": "S2_position_step_0p25m",
+    "split": "test",
+    "duration": 10,
+    "initial_state": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "reference_start": 1,
+    "disturbance_end": 0,
+    "measurement_noise_std": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "reference_amplitude": 0.25,
+    "force_amplitude": 0,
+    "force_start": 0,
+    "force_duration": 0,
+    "torque_amplitude": 0,
+    "torque_start": 0,
+    "torque_duration": 0,
+    "constant_force": 0
+  },
+  "S2_position_step_0p75m": {
+    "name": "S2_position_step_0p75m",
+    "split": "test",
+    "duration": 10,
+    "initial_state": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "reference_start": 1,
+    "disturbance_end": 0,
+    "measurement_noise_std": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "reference_amplitude": 0.75,
+    "force_amplitude": 0,
+    "force_start": 0,
+    "force_duration": 0,
+    "torque_amplitude": 0,
+    "torque_start": 0,
+    "torque_duration": 0,
+    "constant_force": 0
+  },
+  "S2_position_step_1p0m": {
+    "name": "S2_position_step_1p0m",
+    "split": "test",
+    "duration": 10,
+    "initial_state": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "reference_start": 1,
+    "disturbance_end": 0,
+    "measurement_noise_std": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "reference_amplitude": 1,
+    "force_amplitude": 0,
+    "force_start": 0,
+    "force_duration": 0,
+    "torque_amplitude": 0,
+    "torque_start": 0,
+    "torque_duration": 0,
+    "constant_force": 0
+  },
+  "S2_saturation_stress": {
+    "name": "S2_saturation_stress",
+    "split": "test",
+    "duration": 10,
+    "initial_state": [
+      0,
+      0,
+      0.13962634015954636,
+      0
+    ],
+    "reference_start": 0.5,
+    "disturbance_end": 1.4,
+    "measurement_noise_std": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "reference_amplitude": 1,
+    "force_amplitude": 10,
+    "force_start": 1.2,
+    "force_duration": 0.2,
+    "torque_amplitude": 0,
+    "torque_start": 0,
+    "torque_duration": 0,
+    "constant_force": 0
+  },
+  "S3_positive_impulse": {
+    "name": "S3_positive_impulse",
+    "split": "test",
+    "duration": 10,
+    "initial_state": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "reference_start": 1,
+    "disturbance_end": 4.2,
+    "measurement_noise_std": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "reference_amplitude": 0.5,
+    "force_amplitude": 8,
+    "force_start": 4,
+    "force_duration": 0.2,
+    "torque_amplitude": 0,
+    "torque_start": 0,
+    "torque_duration": 0,
+    "constant_force": 0
+  },
+  "S3_negative_impulse": {
+    "name": "S3_negative_impulse",
+    "split": "test",
+    "duration": 10,
+    "initial_state": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "reference_start": 1,
+    "disturbance_end": 4.2,
+    "measurement_noise_std": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "reference_amplitude": 0.5,
+    "force_amplitude": -8,
+    "force_start": 4,
+    "force_duration": 0.2,
+    "torque_amplitude": 0,
+    "torque_start": 0,
+    "torque_duration": 0,
+    "constant_force": 0
+  },
+  "S3_torque_impulse": {
+    "name": "S3_torque_impulse",
+    "split": "test",
+    "duration": 10,
+    "initial_state": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "reference_start": 1,
+    "disturbance_end": 4.15,
+    "measurement_noise_std": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "reference_amplitude": 0.5,
+    "force_amplitude": 0,
+    "force_start": 0,
+    "force_duration": 0,
+    "torque_amplitude": 0.9,
+    "torque_start": 4,
+    "torque_duration": 0.15,
+    "constant_force": 0
+  },
+  "S5_constant_bias": {
+    "name": "S5_constant_bias",
+    "split": "test",
+    "duration": 10,
+    "initial_state": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "reference_start": 1,
+    "disturbance_end": 0,
+    "measurement_noise_std": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "reference_amplitude": 0.5,
+    "force_amplitude": 0,
+    "force_start": 0,
+    "force_duration": 0,
+    "torque_amplitude": 0,
+    "torque_start": 0,
+    "torque_duration": 0,
+    "constant_force": 0.8
+  }
+}
