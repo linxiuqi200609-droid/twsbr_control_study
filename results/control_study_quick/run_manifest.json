@@ -1,5 +1,5 @@
 {
-  "created_utc": "2026-08-31T05:51:27.375Z",
+  "created_utc": "2026-08-31T16:19:00.120Z",
   "version": "26.1.0.3312084 (R2026a) Update 4",
   "computer": "PCWIN64",
   "matlab_release": "2026a",
@@ -469,7 +469,7 @@
       "version": "26.1"
     }
   ],
-  "git_commit": "b20c382725f122ef7cc36b4f0d5448b358b61d0e",
+  "git_commit": "858c6dfeeb6ee98aae77fd41c17e98f4393b438a",
   "mode": "quick",
   "seed": 2026,
   "controller_names": [
@@ -615,7 +615,7 @@
       "control_available": true,
       "statistics_available": true,
       "output_writable": true,
-      "git_commit": "b20c382725f122ef7cc36b4f0d5448b358b61d0e",
+      "git_commit": "858c6dfeeb6ee98aae77fd41c17e98f4393b438a",
       "accepted": true
     },
     "uncertainty": {

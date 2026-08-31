@@ -1,39 +1,55 @@
 # Project status and continuation guide
 
-Updated: 2026-08-31.
+Updated: 2026-09-01.
 
-## Active checkpoint: corrected source awaiting final acceptance
+## Completed checkpoint: corrected five-controller Quick acceptance
 
-The saved Quick run at `b20c382` passed execution/artifact gates, but is now
-classified as **diagnostic only** for robustness comparison. Final review found
-`run_monte_carlo` passes each perturbed plant into `simulate_control_system`,
-which also uses that plant to create/recompute LQR/LQI gains. The binding design
-requires gains designed from the nominal plant and only the simulated plant
-perturbed. Root confirmed this source data flow. The current success table is
-historical output, not accepted fair-comparison evidence.
+The unified MATLAB/Simulink workflow is implemented and its corrected default
+Quick run has passed the local execution and artifact gates. The entry call was
+`run_control_study("quick", false)` with no third-argument overrides, from clean
+source `858c6dfeeb6ee98aae77fd41c17e98f4393b438a` on 2026-09-01. Its process
+started at 00:12:06 and exited normally at 00:19:10 (Asia/Shanghai).
 
-The whole-branch review is complete: three Important findings concern nominal
-controller design in Monte Carlo, per-trial controller runtime accounting, and
-optional Git provenance. Seven Minor findings cover figure missingness, empty
-workbook widths, group-count labels, test coverage, documentation, fuzzy safety
-wording, and arithmetic-overflow classification. The single consolidated
-corrective wave is committed as `311a581`. Its full regression passed **395/395
-tests**, with zero failed/incomplete tests, and all **164 tracked MATLAB files**
-had zero Code Analyzer findings; actual process exit was `0`. Root read the
-complete persistent verification log and checked the source-only commit.
-Independent Root verification, one scoped re-review, and a new default Quick
-run are still required. The earlier 376-test result is historical evidence only.
+- Five controllers used the same DE population 24 and budget 240 each, tuning
+  seed 0 and global seed 2026; training/test/Monte Carlo durations were 10 seconds.
+- All 60 deterministic and 50 paired Monte Carlo trials are retained; all five
+  representative MATLAB/Simulink comparisons passed and all 12 figures exist.
+- Nominal LQR/LQI design gains stay frozen while Monte Carlo physics is perturbed.
+  Lifecycle timing is separate from total simulator walltime and uses actual
+  controller-update counts. Missing Git metadata is nonfatal and explicitly unknown.
+- The whole-branch review and its single correction/re-review wave are complete:
+  `311a581` addressed three Important and seven Minor findings, with no new
+  breakage identified in the scoped review through `858c6df`.
+- Final independent release verification on 2026-09-01 passed **395/395 tests**,
+  zero failed/incomplete, and **164 MATLAB files with zero Analyzer findings**.
+  Both the Quick process and this full verification have captured exit `0` and
+  persistent exit records. The earlier supplemental 104-test run also passed,
+  but its process exit was lost after interruption and remains unknown.
+- Root reconciled all configuration hashes, frozen vectors, counts, timings,
+  paired perturbations and raw paths. All six PDFs parsed without diagnostics
+  and were viewed; all eleven workbook sheets and eight extended ranges were
+  inspected with zero spreadsheet error cells.
+- The 60 indexed raw traces total 26,710,749 bytes (largest 804,084 bytes).
+  Six actual Quick SLX files were restored from checked snapshots after tests;
+  hashes confirmed all 88 Quick artifacts remained unchanged by the test suite.
 
-One earlier full run encountered an intermittent PNG-export failure in an
-unchanged legacy root-entry test. An unchanged-source standalone reproduction
-then passed, followed by the successful full run above. The cause is unconfirmed;
-no retry/masking behavior was added to production or tests. Independent Root
-verification includes that legacy entry-point test again.
+Results and limitations are recorded in `docs/QUICK_STUDY_RESULTS.md`. This is
+Quick-mode software acceptance, not a Full-budget study, a controller ranking,
+hardware validation, or authorization to merge into `main`.
+
+The older run from `b20c382`, preserved in artifact commit `8a14d7b`, remains
+diagnostic only because it redesigned gains using perturbed MC plants and used
+mis-scoped timing. It has been superseded, not retrospectively validated.
+
+One historical full run encountered a PNG-export failure in an unchanged legacy
+entry-point test. Subsequent focused, full, independent and final release runs
+passed that path. Its cause remains unconfirmed; no retry or masking behavior
+was added and the historical event is not claimed to be fixed.
 
 The detailed fuzzy implementation currently uses nonnegative gains, with an
 upper bound of four times each candidate's base gain, held fixed online. This
 differs from the high-level spec's strictly positive, candidate-independent
-wording. The correction wave preserves the existing numerical law and records
+wording. The completed correction wave preserves the existing numerical law and records
 the difference explicitly; choosing new global positive limits would require a
 separate scientific design decision and retuning.
 
@@ -46,6 +62,10 @@ separate scientific design decision and retuning.
 - All public MATLAB code uses English, MATLAB-compatible filenames and the explicit `setup_project` path allowlist.
 
 ## Completed implementation before this checkpoint
+
+The historical sections below describe evidence at their named commits. Their
+then-open review notes were addressed or explicitly dispositioned in the final
+wave above; they are not additional pending implementation tasks.
 
 - Nonlinear balancing-robot plant and legacy attitude/cascade PID workflows.
 - Five-controller factory, shared numerical simulator, differential evolution, deterministic and paired Monte Carlo experiment components.
@@ -88,9 +108,16 @@ separate scientific design decision and retuning.
 
 ## Next work
 
-1. Independently verify committed correction `311a581` and complete one scoped re-review. The original diagnostic artifacts are preserved in commit `8a14d7b`; do not rerun completed implementation tasks or start another final-fix wave.
-2. Verify the corrected source, rerun the actual default Quick without reduced/frozen overrides, and reconcile figures, workbook, metrics, provenance and raw-index paths. Replace the diagnostic result narrative only when new evidence passes these gates.
-3. Commit corrected evidence and push only the existing authorized branch, then verify local/upstream/live remote equality. Do not claim final completion before review, execution and synchronization.
+1. Version the corrected evidence with these documents and synchronize only the
+   authorized current branch; verify local/upstream/live commit equality. The
+   run manifest deliberately points to its clean source commit, not the later
+   artifact commit that contains the generated outputs.
+2. The next research stage can be a Full-budget multi-seed study using the
+   existing entry point, after selecting its compute/time budget. No Full run
+   is claimed here and no completed controller/model task needs to be restarted.
+3. Before paper-level conclusions, retain the failed baseline trials, distinguish
+   task success from upright stabilization, and decide whether the stricter fuzzy
+   gain-bound alternative is actually required. Hardware validation is separate.
 
 ## Continuation sources
 

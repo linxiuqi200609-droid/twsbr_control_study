@@ -1,5 +1,5 @@
-metric,group_count,successful_n,p_value
-theta_rms_deg,5,40,1.87827180522613e-06
-position_itae,5,40,0.0187955761934062
-control_energy,5,40,1.56696788286605e-07
-saturation_ratio,5,40,2.77977890159849e-05
+metric,group_count,successful_n,p_value,configured_group_count,analyzed_group_count
+theta_rms_deg,5,40,1.87827180522613e-06,5,4
+position_itae,5,40,0.0214008137205139,5,4
+control_energy,5,40,1.67775153407491e-07,5,4
+saturation_ratio,5,40,2.12394626146039e-05,5,4
