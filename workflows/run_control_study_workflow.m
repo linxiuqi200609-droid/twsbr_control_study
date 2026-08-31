@@ -62,7 +62,11 @@ validation = empty_validation_table();
 if options.run_simulink
     announce("Simulink equivalence");
     validation = run_simulink_validation_batch(frozen, plant, config);
-    stage_status.simulink = stage("completed", "");
+    if equivalence_accepted_count(validation) == numel(config.controller_names)
+        stage_status.simulink = stage("completed", "");
+    else
+        stage_status.simulink = stage("failed", "rejected_comparison");
+    end
 else
     stage_status.simulink = stage("skipped", "disabled_by_option");
 end
@@ -130,6 +134,12 @@ context = struct( ...
     "equivalence_accepted_count", equivalence_accepted_count(validation));
 manifest_path = build_run_manifest(output_root, config, objective, frozen, ...
     environment.git_commit, context);
+
+if options.run_simulink && ...
+        equivalence_accepted_count(validation) ~= numel(config.controller_names)
+    error("twsbr:study:simulink_validation_failed", ...
+        "Simulink validation requires five accepted controller comparisons.");
+end
 
 summary = struct();
 summary.mode = mode;

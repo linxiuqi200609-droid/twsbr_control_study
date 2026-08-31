@@ -173,6 +173,37 @@ manifest = jsondecode(fileread(summary.manifest_path));
 verifyTrue(test_case, isfield(manifest.context, "source_dirty"));
 end
 
+function test_enabled_simulink_rejection_persists_failure_before_error(test_case)
+project_root = string(fileparts(fileparts(mfilename("fullpath"))));
+addpath(project_root, "-begin");
+output_root = string(tempname);
+mock_root = string(tempname);
+mkdir(mock_root);
+write_rejected_validation_batch(mock_root);
+addpath(mock_root, "-begin");
+cleanup = onCleanup(@() remove_mock_validation_batch(mock_root, output_root));
+clear run_simulink_validation_batch
+
+verifyError(test_case, @() run_control_study("quick", false, struct( ...
+    "frozen_vectors", starter_vectors_for_test(), ...
+    "run_monte_carlo", false, "run_simulink", true, ...
+    "require_statistics", false, "generate_figures", false, ...
+    "output_root", output_root)), "twsbr:study:simulink_validation_failed");
+
+validation_path = fullfile(output_root, "simulink_validation", ...
+    "equivalence_summary.csv");
+verifyTrue(test_case, isfile(validation_path));
+validation = readtable(validation_path);
+verifyEqual(test_case, height(validation), 5);
+verifyEqual(test_case, sum(validation.accepted), 4);
+manifest = jsondecode(fileread(fullfile(output_root, "run_manifest.json")));
+verifyEqual(test_case, string(manifest.context.stage_status.simulink.state), ...
+    "failed");
+verifyEqual(test_case, string(manifest.context.stage_status.simulink.reason), ...
+    "rejected_comparison");
+verifyEqual(test_case, manifest.context.equivalence_accepted_count, 4);
+end
+
 function test_statistics_workbook_widens_text_columns(test_case)
 root = string(tempname);
 mkdir(root);
@@ -222,6 +253,40 @@ end
 function rmdir_if_present(path)
 if isfolder(path)
     rmdir(path, "s");
+end
+end
+
+function write_rejected_validation_batch(mock_root)
+path_value = fullfile(mock_root, "run_simulink_validation_batch.m");
+file_identifier = fopen(path_value, "w", "n", "UTF-8");
+cleanup = onCleanup(@() fclose(file_identifier));
+lines = [ ...
+    "function validation = run_simulink_validation_batch(~, ~, ~)"; ...
+    "controller = [""ATTITUDE_PID""; ""CASCADE_PID""; ""FUZZY_PID""; ""LQR""; ""LQI""];"; ...
+    "scenario = repmat(""mock_scenario"", 5, 1);"; ...
+    "accepted = [true; true; true; true; false];"; ...
+    "validation = table(controller, scenario, zeros(5,1), zeros(5,1), ..."; ...
+    "    zeros(5,1), ones(5,1), ones(5,1), ones(5,1), zeros(5,1), ..."; ...
+    "    true(5,1), accepted, 'VariableNames', {'controller', 'scenario', ..."; ...
+    "    'max_tilt_difference_deg', 'max_position_difference_m', ..."; ...
+    "    'max_applied_input_difference', 'tilt_tolerance_deg', ..."; ...
+    "    'position_tolerance_m', 'input_tolerance', ..."; ...
+    "    'max_fuzzy_gain_relative_error', 'fuzzy_gain_accepted', 'accepted'});"; ...
+    "end"];
+fprintf(file_identifier, "%s\n", lines);
+clear cleanup
+end
+
+function remove_mock_validation_batch(mock_root, output_root)
+clear run_simulink_validation_batch
+if contains(path, char(mock_root))
+    rmpath(mock_root);
+end
+if isfolder(mock_root)
+    rmdir(mock_root, "s");
+end
+if isfolder(output_root)
+    rmdir(output_root, "s");
 end
 end
 
