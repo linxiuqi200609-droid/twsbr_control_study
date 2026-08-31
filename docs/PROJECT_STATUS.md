@@ -58,6 +58,10 @@ separate scientific design decision and retuning.
 - Workspace: `D:/Research/srtp`.
 - Branch: `codex/five-controller-study-implementation`.
 - Authorized remote: `https://github.com/linxiuqi200609-droid/twsbr_control_study.git`.
+- Corrected artifact checkpoint: `34791e5fd43faf7de4ad262017f90efcd7ec1b21`.
+  Its push completed on 2026-09-01; local, tracking and live remote SHAs were
+  verified equal with a clean worktree. This final handoff note follows that
+  artifact checkpoint and does not change verified MATLAB source or outputs.
 - Commit and push the current branch by default. Do not merge or push to `main` without a new user decision.
 - All public MATLAB code uses English, MATLAB-compatible filenames and the explicit `setup_project` path allowlist.
 
@@ -106,16 +110,17 @@ wave above; they are not additional pending implementation tasks.
 - Sixty compact Quick raw traces (26.7MB total, maximum0.804MB per file) are selected for versioning by validated index paths so the saved raw index stays usable after clone. A separate1.42GB debugging snapshot and large Full artifacts remain local/ignored. The earlier usage interruption preserved all files, and no usage-reset credits were consumed.
 - Local continuation records include `task-8-report.md`, `task-8-root-qa.md`, and persistent `task-8-*.log` files under the active plan's ignored SDD directory. The latest log/report and Git state take precedence over these checkpoint counts as work progresses.
 
-## Next work
+## Next research stage
 
-1. Version the corrected evidence with these documents and synchronize only the
-   authorized current branch; verify local/upstream/live commit equality. The
-   run manifest deliberately points to its clean source commit, not the later
-   artifact commit that contains the generated outputs.
-2. The next research stage can be a Full-budget multi-seed study using the
+The eight-task implementation plan, final correction/review, corrected default
+Quick, artifact QA and artifact synchronization are complete. Do not restart
+them on continuation. The manifest deliberately identifies clean source
+`858c6df`; generated outputs are versioned later in artifact checkpoint `34791e5`.
+
+1. The next research stage can be a Full-budget multi-seed study using the
    existing entry point, after selecting its compute/time budget. No Full run
    is claimed here and no completed controller/model task needs to be restarted.
-3. Before paper-level conclusions, retain the failed baseline trials, distinguish
+2. Before paper-level conclusions, retain the failed baseline trials, distinguish
    task success from upright stabilization, and decide whether the stricter fuzzy
    gain-bound alternative is actually required. Hardware validation is separate.
 
